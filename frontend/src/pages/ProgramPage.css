@@ -1,0 +1,332 @@
+.program-loading,
+.program-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 60px);
+  text-align: center;
+  color: var(--text-muted);
+  gap: 12px;
+}
+.program-empty-icon { font-size: 52px; }
+.program-empty h2 { font-family: var(--font-display); font-size: 24px; color: var(--text-primary); }
+.program-empty p { color: var(--text-secondary); font-size: 15px; max-width: 400px; }
+
+.program-page {
+  padding: 48px 24px;
+  max-width: 800px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.program-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+  flex-wrap: wrap;
+}
+.program-title {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 6px;
+}
+.program-sub { color: var(--text-secondary); font-size: 15px; }
+
+.program-progress-block { min-width: 180px; }
+.program-progress-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+.program-progress-pct { font-weight: 700; color: var(--green); }
+.program-progress-track {
+  height: 6px;
+  background: var(--bg-elevated);
+  border-radius: 99px;
+  overflow: hidden;
+  position: relative;
+}
+.program-progress-fill {
+  height: 100%;
+  background: var(--green);
+  border-radius: 99px;
+  transition: width 0.7s ease;
+}
+.program-progress-inprogress {
+  position: absolute;
+  top: 0; left: 0;
+  height: 100%;
+  background: var(--accent);
+  border-radius: 99px;
+  opacity: 0.5;
+  transition: width 0.7s ease;
+}
+.program-progress-legend {
+  display: flex;
+  gap: 12px;
+  margin-top: 6px;
+  font-size: 11px;
+}
+.legend-inprogress { color: var(--accent); }
+.legend-completed { color: var(--green); }
+
+/* Upsell banner */
+.program-upsell {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px 24px;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(124, 106, 255, 0.3);
+  background: rgba(124, 106, 255, 0.07);
+  flex-wrap: wrap;
+}
+.program-upsell-text {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  font-size: 22px;
+}
+.program-upsell-text > div strong { display: block; font-size: 15px; margin-bottom: 4px; }
+.program-upsell-text > div p { font-size: 13px; color: var(--text-secondary); }
+.program-upsell-btn { white-space: nowrap; }
+
+/* Skill groups */
+.program-skills { display: flex; flex-direction: column; gap: 32px; }
+
+.program-skill-group {}
+.program-skill-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.program-skill-icon { font-size: 20px; }
+.program-skill-name {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--skill-color);
+}
+.program-skill-stats {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.program-skill-count { font-size: 13px; color: var(--text-muted); }
+.skill-stat-progress { color: var(--accent); font-size: 10px; }
+
+.skill-progress-track {
+  height: 3px;
+  background: var(--bg-elevated);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+.skill-progress-fill {
+  height: 100%;
+  background: var(--green);
+  border-radius: 99px;
+  transition: width 0.5s ease;
+}
+
+.program-exercises { display: flex; flex-direction: column; gap: 12px; }
+
+/* Exercise card */
+.exercise-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 20px;
+  transition: all 0.2s;
+}
+.exercise-card.status-completed {
+  border-color: var(--green);
+  background: rgba(62, 207, 142, 0.04);
+}
+.exercise-card.status-in_progress {
+  border-color: var(--accent);
+  background: rgba(124, 106, 255, 0.04);
+}
+.exercise-card.locked {
+  opacity: 0.75;
+  border-style: dashed;
+}
+
+.exercise-main { display: flex; align-items: flex-start; gap: 16px; }
+.exercise-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+}
+.exercise-meta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+.exercise-date { font-size: 11px; color: var(--text-muted); }
+
+.exercise-status-badge {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.exercise-status-badge.status-not_started { background: var(--bg-elevated); color: var(--text-muted); }
+.exercise-status-badge.status-in_progress { background: rgba(124,106,255,0.15); color: var(--accent-light); }
+.exercise-status-badge.status-completed { background: rgba(62,207,142,0.15); color: var(--green); }
+
+.exercise-notes { display: flex; flex-direction: column; gap: 8px; }
+.exercise-notes-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-secondary, rgba(255,255,255,0.03));
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  resize: vertical;
+  line-height: 1.5;
+}
+.exercise-notes-input:focus { outline: none; border-color: var(--accent); }
+.exercise-notes-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 6px;
+}
+.exercise-notes-save, .exercise-notes-cancel { font-size: 12px; padding: 5px 12px; }
+.exercise-notes-view { display: flex; flex-direction: column; gap: 6px; }
+.exercise-notes-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  background: var(--bg-elevated);
+  padding: 10px 12px;
+  border-radius: 8px;
+  margin: 0;
+}
+.exercise-notes-empty { font-size: 12px; color: var(--text-muted); font-style: italic; margin: 0; }
+.exercise-notes-edit { font-size: 12px; align-self: flex-start; }
+
+.exercise-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.exercise-status-btn {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+}
+.exercise-status-btn.status-btn-not_started {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+}
+.exercise-status-btn.status-btn-in_progress {
+  background: var(--green);
+  color: #0a0a0f;
+  border: none;
+}
+.exercise-status-btn.status-btn-completed {
+  background: transparent;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+.exercise-check {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  border: 2px solid var(--border-hover);
+  background: transparent;
+  color: var(--green);
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 2px;
+  transition: all 0.15s;
+}
+.exercise-check:hover { border-color: var(--green); }
+.exercise-check.checked {
+  background: var(--green);
+  border-color: var(--green);
+  color: #0a0a0f;
+}
+
+.exercise-lock {
+  font-size: 18px;
+  margin-top: 2px;
+  flex-shrink: 0;
+}
+
+.exercise-body { flex: 1; }
+.exercise-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+.exercise-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 8px;
+}
+.exercise-level {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.exercise-unlock-btn {
+  flex-shrink: 0;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-light);
+  border: 1px solid rgba(124,106,255,0.4);
+  background: rgba(124,106,255,0.08);
+  transition: all 0.15s;
+  align-self: center;
+}
+.exercise-unlock-btn:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* Completion banner */
+.program-complete {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 24px 28px;
+  border-color: var(--green);
+  background: rgba(62, 207, 142, 0.05);
+  font-size: 28px;
+  flex-wrap: wrap;
+}
+.program-complete > div strong { display: block; font-size: 16px; margin-bottom: 4px; }
+.program-complete > div p { font-size: 13px; color: var(--text-secondary); }
+.program-complete .btn { margin-left: auto; }

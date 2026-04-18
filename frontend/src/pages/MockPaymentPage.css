@@ -1,0 +1,126 @@
+.mock-payment-page {
+  height: calc(100vh - 60px);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.mock-payment-card {
+  width: 100%;
+  max-width: 400px;
+  padding: 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.mock-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mock-logo {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.mock-badge {
+  font-size: 0.72rem;
+  padding: 0.2rem 0.55rem;
+  background: var(--accent-muted, rgba(99, 102, 241, 0.15));
+  color: var(--accent, #6366f1);
+  border-radius: 999px;
+  font-weight: 500;
+}
+
+.mock-merchant {
+  text-align: center;
+}
+
+.mock-merchant-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.mock-merchant-desc {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}
+
+.mock-amount {
+  text-align: center;
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.mock-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.mock-field-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.mock-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.mock-field label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.mock-field input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg-secondary, rgba(255,255,255,0.05));
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  cursor: default;
+  outline: none;
+}
+
+.mock-label {
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.mock-error {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.mock-btn {
+  width: 100%;
+  padding: 0.85rem;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.mock-cancel {
+  width: 100%;
+  text-align: center;
+  font-size: 0.9rem;
+}

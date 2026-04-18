@@ -1,0 +1,100 @@
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  border-bottom: 1px solid var(--border);
+  background: rgba(10, 10, 15, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+}
+
+.navbar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 60px;
+}
+
+.navbar-logo {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: -0.01em;
+}
+
+.navbar-logo-icon {
+  color: var(--accent);
+  font-size: 18px;
+}
+
+.navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.navbar-link {
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: all 0.15s;
+}
+.navbar-link:hover { color: var(--text-primary); background: var(--bg-elevated); }
+.navbar-link.active { color: var(--text-primary); }
+
+.navbar-admin {
+  color: var(--accent) !important;
+  font-weight: 600;
+}
+
+.navbar-upgrade {
+  margin-left: 8px;
+  padding: 7px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  background: var(--accent-glow);
+  transition: all 0.2s;
+}
+.navbar-upgrade:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.navbar-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 4px;
+  transition: opacity 0.15s;
+  text-decoration: none;
+}
+.navbar-avatar:hover { opacity: 0.85; }
+.navbar-avatar.active { outline: 2px solid var(--accent); outline-offset: 2px; }
+.navbar-avatar-img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+
+.navbar-logout {
+  margin-left: 4px;
+  padding: 7px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  color: var(--text-muted);
+  background: transparent;
+  transition: all 0.15s;
+}
+.navbar-logout:hover { color: var(--red); }

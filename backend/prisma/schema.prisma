@@ -1,0 +1,153 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String   @id @default(uuid())
+  email      String   @unique
+  password   String
+  name       String?
+  has_paid   Boolean  @default(false)
+  avatar     String?
+  created_at DateTime @default(now())
+
+  answers       UserAnswer[]
+  scores        SkillScore[]
+  scoreHistory  SkillScoreHistory[]
+  programs      DevelopmentProgram[]
+  payments      Payment[]
+}
+
+model Question {
+  id      String  @id @default(uuid())
+  text    String
+  skill   Skill
+  options Json
+  order   Int     @default(0)
+
+  answers UserAnswer[]
+}
+
+model UserAnswer {
+  id          String   @id @default(uuid())
+  user_id     String
+  question_id String
+  value       Int
+  created_at  DateTime @default(now())
+
+  user     User     @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  question Question @relation(fields: [question_id], references: [id])
+
+  @@unique([user_id, question_id])
+}
+
+model SkillScore {
+  id         String   @id @default(uuid())
+  user_id    String
+  skill      Skill
+  score      Int
+  created_at DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, skill])
+}
+
+model SkillScoreHistory {
+  id         String   @id @default(uuid())
+  user_id    String
+  skill      Skill
+  score      Int
+  attempt    Int
+  created_at DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+model Exercise {
+  id          String  @id @default(uuid())
+  title       String
+  description String
+  skill       Skill
+  difficulty  Int     @default(1)
+  is_free     Boolean @default(true)
+
+  program_items ProgramExercise[]
+}
+
+model DevelopmentProgram {
+  id         String   @id @default(uuid())
+  user_id    String
+  created_at DateTime @default(now())
+
+  user      User              @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  exercises ProgramExercise[]
+}
+
+model ProgramExercise {
+  id           String         @id @default(uuid())
+  program_id   String
+  exercise_id  String
+  status       ExerciseStatus @default(not_started)
+  notes        String?
+  started_at   DateTime?
+  completed_at DateTime?
+
+  program  DevelopmentProgram @relation(fields: [program_id], references: [id], onDelete: Cascade)
+  exercise Exercise           @relation(fields: [exercise_id], references: [id])
+}
+
+model Resource {
+  id          String       @id @default(uuid())
+  title       String
+  author      String
+  description String
+  type        ResourceType
+  skill       Skill
+  file_url    String?
+  created_at  DateTime     @default(now())
+}
+
+model Payment {
+  id         String        @id @default(uuid())
+  user_id    String
+  amount     Int
+  status     PaymentStatus @default(PENDING)
+  label      String        @unique
+  created_at DateTime      @default(now())
+  paid_at    DateTime?
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+}
+
+enum Skill {
+  communication
+  leadership
+  self_organization
+  empathy
+  critical_thinking
+}
+
+enum ResourceType {
+  book
+  article
+  video
+  course
+}
+
+enum ExerciseStatus {
+  not_started
+  in_progress
+  completed
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+}
