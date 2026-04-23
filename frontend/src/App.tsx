@@ -10,7 +10,6 @@ import { ResultsPage } from './pages/ResultsPage';
 import { ProgramPage } from './pages/ProgramPage';
 import { PaymentPage } from './pages/PaymentPage';
 import { PaymentSuccessPage } from './pages/PaymentSuccessPage';
-import { MockPaymentPage } from './pages/MockPaymentPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { RecommendationsPage } from './pages/RecommendationsPage';
@@ -43,8 +42,7 @@ function AppRoutes() {
         <Route path="/results" element={<PrivateRoute><ResultsPage /></PrivateRoute>} />
         <Route path="/program" element={<PrivateRoute><ProgramPage /></PrivateRoute>} />
         <Route path="/payment" element={<PrivateRoute><PaymentPage /></PrivateRoute>} />
-        <Route path="/payment/mock" element={<PrivateRoute><MockPaymentPage /></PrivateRoute>} />
-        <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
+<Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
         <Route path="/payment/success" element={<PrivateRoute><PaymentSuccessPage /></PrivateRoute>} />
         <Route path="/recommendations" element={<RecommendationsPage />} />
         <Route path="/methodology" element={<MethodologyPage />} />
