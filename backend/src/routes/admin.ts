@@ -1,13 +1,13 @@
-import { Router, Response } from 'express';
+import { FastifyInstance } from 'fastify';
 import { prisma } from '../lib/prisma';
-import { authMiddleware, adminMiddleware, AuthRequest } from '../middleware/auth';
+import { authHook, adminHook } from '../plugins/auth';
 
-export const adminRouter = Router();
-adminRouter.use(authMiddleware, adminMiddleware);
+export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
+  fastify.addHook('preHandler', authHook);
+  fastify.addHook('preHandler', adminHook);
 
-// GET /api/admin/stats
-adminRouter.get('/stats', async (_req: AuthRequest, res: Response) => {
-  try {
+  // GET /api/admin/stats
+  fastify.get('/stats', async (_request, reply) => {
     const totalUsers = await prisma.user.count();
     const paidUsers = await prisma.user.count({ where: { has_paid: true } });
     const totalPayments = await prisma.payment.count({ where: { status: 'PAID' } });
@@ -17,62 +17,48 @@ adminRouter.get('/stats', async (_req: AuthRequest, res: Response) => {
       _avg: { score: true },
     });
 
-    res.json({ totalUsers, paidUsers, totalPayments, skillAverages });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Ошибка получения статистики' });
-  }
-});
+    return reply.send({ totalUsers, paidUsers, totalPayments, skillAverages });
+  });
 
-// GET /api/admin/users
-adminRouter.get('/users', async (_req: AuthRequest, res: Response) => {
-  try {
+  // GET /api/admin/users
+  fastify.get('/users', async (_request, reply) => {
     const users = await prisma.user.findMany({
       select: { id: true, email: true, name: true, has_paid: true, created_at: true },
       orderBy: { created_at: 'desc' },
     });
-    res.json({ users });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Ошибка загрузки пользователей' });
-  }
-});
+    return reply.send({ users });
+  });
 
-// POST /api/admin/exercises
-adminRouter.post('/exercises', async (req: AuthRequest, res: Response) => {
-  try {
-    const { title, description, skill, difficulty, is_free } = req.body;
-    const exercise = await prisma.exercise.create({
-      data: { title, description, skill, difficulty: difficulty || 1, is_free: is_free ?? true },
-    });
-    res.status(201).json({ exercise });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Ошибка создания упражнения' });
-  }
-});
+  // POST /api/admin/exercises
+  fastify.post<{ Body: { title: string; description: string; skill: string; difficulty?: number; is_free?: boolean } }>(
+    '/exercises',
+    async (request, reply) => {
+      const { title, description, skill, difficulty, is_free } = request.body;
+      const exercise = await prisma.exercise.create({
+        data: { title, description, skill: skill as any, difficulty: difficulty || 1, is_free: is_free ?? true },
+      });
+      return reply.status(201).send({ exercise });
+    }
+  );
 
-// POST /api/admin/questions
-adminRouter.post('/questions', async (req: AuthRequest, res: Response) => {
-  try {
-    const { text, skill, options, order } = req.body;
-    const question = await prisma.question.create({
-      data: { text, skill, options, order: order || 0 },
-    });
-    res.status(201).json({ question });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Ошибка создания вопроса' });
-  }
-});
+  // POST /api/admin/questions
+  fastify.post<{ Body: { text: string; skill: string; options: string[]; order?: number } }>(
+    '/questions',
+    async (request, reply) => {
+      const { text, skill, options, order } = request.body;
+      const question = await prisma.question.create({
+        data: { text, skill: skill as any, options, order: order || 0 },
+      });
+      return reply.status(201).send({ question });
+    }
+  );
 
-// DELETE /api/admin/questions/:id
-adminRouter.delete('/questions/:id', async (req: AuthRequest, res: Response) => {
-  try {
-    await prisma.question.delete({ where: { id: req.params.id } });
-    res.json({ message: 'Вопрос удалён' });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Ошибка удаления вопроса' });
-  }
-});
+  // DELETE /api/admin/questions/:id
+  fastify.delete<{ Params: { id: string } }>(
+    '/questions/:id',
+    async (request, reply) => {
+      await prisma.question.delete({ where: { id: request.params.id } });
+      return reply.send({ message: 'Вопрос удалён' });
+    }
+  );
+}

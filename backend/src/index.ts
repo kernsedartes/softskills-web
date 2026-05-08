@@ -1,41 +1,49 @@
-import express from 'express';
-import cors from 'cors';
-import dotenv from 'dotenv';
+import Fastify from 'fastify';
+import cors from '@fastify/cors';
+import staticFiles from '@fastify/static';
+import multipart from '@fastify/multipart';
 import path from 'path';
-import { authRouter } from './routes/auth';
-import { testRouter } from './routes/test';
-import { programRouter } from './routes/program';
-import { paymentRouter } from './routes/payment';
-import { adminRouter } from './routes/admin';
-import { resourcesRouter } from './routes/resources';
+import dotenv from 'dotenv';
+import { authRoutes } from './routes/auth';
+import { testRoutes } from './routes/test';
+import { programRoutes } from './routes/program';
+import { paymentRoutes } from './routes/payment';
+import { adminRoutes } from './routes/admin';
+import { resourceRoutes } from './routes/resources';
 
 dotenv.config();
 
-const app = express();
-const PORT = process.env.PORT || 3001;
+const app = Fastify({ logger: true });
 
-app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
-  credentials: true,
-}));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+async function start(): Promise<void> {
+  await app.register(cors, {
+    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    credentials: true,
+  });
 
-// Routes
-app.use('/api/auth', authRouter);
-app.use('/api/test', testRouter);
-app.use('/api/program', programRouter);
-app.use('/api/payment', paymentRouter);
-app.use('/api/admin', adminRouter);
-app.use('/api/resources', resourcesRouter);
+  await app.register(staticFiles, {
+    root: path.join(__dirname, '../uploads'),
+    prefix: '/uploads',
+  });
 
-app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  await app.register(multipart, {
+    limits: { fileSize: 20 * 1024 * 1024 },
+  });
+
+  await app.register(authRoutes, { prefix: '/api/auth' });
+  await app.register(testRoutes, { prefix: '/api/test' });
+  await app.register(programRoutes, { prefix: '/api/program' });
+  await app.register(paymentRoutes, { prefix: '/api/payment' });
+  await app.register(adminRoutes, { prefix: '/api/admin' });
+  await app.register(resourceRoutes, { prefix: '/api/resources' });
+
+  app.get('/api/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
+
+  const PORT = Number(process.env.PORT) || 3001;
+  await app.listen({ port: PORT, host: '0.0.0.0' });
+}
+
+start().catch(err => {
+  console.error(err);
+  process.exit(1);
 });
-
-app.listen(PORT, () => {
-  console.log(`✅ Server running on http://localhost:${PORT}`);
-});
-
-export default app;

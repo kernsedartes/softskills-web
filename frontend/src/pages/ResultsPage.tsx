@@ -10,7 +10,7 @@ import {
 } from 'recharts';
 import './ResultsPage.css';
 
-const MAX_SCORE = 20;
+const MAX_SCORE = 100;
 
 const LEVEL_LABEL = (score: number): { label: string; color: string } => {
   const pct = score / MAX_SCORE;

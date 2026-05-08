@@ -1,176 +1,162 @@
-import { Router, Response, Request } from 'express';
-import { prisma } from '../lib/prisma';
-import { authMiddleware, AuthRequest } from '../middleware/auth';
-import { generateProgram } from '../services/recommendation';
+import { FastifyInstance } from 'fastify';
+import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
-
-export const paymentRouter = Router();
+import { prisma } from '../lib/prisma';
+import { authHook } from '../plugins/auth';
+import { generateProgram } from '../services/recommendation';
 
 const AMOUNT = 299;
-const CLIENT_URL = process.env.CLIENT_URL || 'http://localhost:5173';
-const YOOKASSA_SHOP_ID = process.env.YOOKASSA_SHOP_ID || '';
-const YOOKASSA_SECRET_KEY = process.env.YOOKASSA_SECRET_KEY || '';
-const YOOKASSA_API = 'https://api.yookassa.ru/v3/payments';
+const YOOKASSA_API = 'https://api.yookassa.ru/v3';
 
-function yookassaAuth() {
-  return 'Basic ' + Buffer.from(`${YOOKASSA_SHOP_ID}:${YOOKASSA_SECRET_KEY}`).toString('base64');
+function getYookassaAuth() {
+  const shopId = process.env.YOOKASSA_SHOP_ID;
+  const secretKey = process.env.YOOKASSA_SECRET_KEY;
+  if (!shopId || !secretKey) throw new Error('YOOKASSA_SHOP_ID и YOOKASSA_SECRET_KEY не заданы в .env');
+  return { username: shopId, password: secretKey };
 }
 
-async function createYookassaPayment(label: string, amount: number) {
-  const body = {
-    amount: { value: amount.toFixed(2), currency: 'RUB' },
-    confirmation: {
-      type: 'redirect',
-      return_url: `${CLIENT_URL}/payment/success`,
-    },
-    capture: true,
-    description: 'Расширенный доступ SoftSkills',
-    metadata: { label },
-  };
+export async function paymentRoutes(fastify: FastifyInstance): Promise<void> {
+  // POST /api/payment/create — создание платежа в ЮKassa, возвращает confirmation_token для виджета
+  fastify.post(
+    '/create',
+    { preHandler: authHook },
+    async (request, reply) => {
+      const label = `SS${uuidv4().replace(/-/g, '').slice(0, 12).toUpperCase()}`;
+      const idempotenceKey = uuidv4();
+      const returnUrl = `${process.env.CLIENT_URL || 'http://localhost:5173'}/payment/success`;
 
-  const res = await fetch(YOOKASSA_API, {
-    method: 'POST',
-    headers: {
-      Authorization: yookassaAuth(),
-      'Content-Type': 'application/json',
-      'Idempotence-Key': uuidv4(),
-    },
-    body: JSON.stringify(body),
-  });
+      const auth = getYookassaAuth();
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`YooKassa error ${res.status}: ${err}`);
-  }
+      const { data } = await axios.post(
+        `${YOOKASSA_API}/payments`,
+        {
+          amount: { value: `${AMOUNT}.00`, currency: 'RUB' },
+          confirmation: { type: 'embedded' },
+          capture: true,
+          description: 'Расширенный доступ — SoftSkills Platform',
+          metadata: { label, user_id: request.userId },
+          return_url: returnUrl,
+        },
+        {
+          auth,
+          headers: { 'Idempotence-Key': idempotenceKey },
+        }
+      );
 
-  return res.json() as Promise<{
-    id: string;
-    status: string;
-    confirmation: { confirmation_url: string };
-  }>;
-}
-
-// POST /api/payment/create
-paymentRouter.post('/create', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    const label = `SS${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-
-    const yk = await createYookassaPayment(label, AMOUNT);
-
-    await prisma.payment.create({
-      data: {
-        user_id: req.userId!,
-        amount: AMOUNT,
-        label,
-        yookassa_id: yk.id,
-        status: 'PENDING',
-      },
-    });
-
-    res.json({ paymentUrl: yk.confirmation.confirmation_url, label });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Ошибка создания платежа' });
-  }
-});
-
-// POST /api/payment/webhook  — вызывается ЮКассой при изменении статуса
-paymentRouter.post('/webhook', async (req: Request, res: Response) => {
-  try {
-    const { event, object } = req.body as {
-      event: string;
-      object: { id: string; status: string; metadata?: { label?: string } };
-    };
-
-    if (event === 'payment.succeeded' && object.status === 'succeeded') {
-      const yookassaId = object.id;
-      const label = object.metadata?.label;
-
-      const payment = await prisma.payment.findFirst({
-        where: {
-          OR: [
-            ...(yookassaId ? [{ yookassa_id: yookassaId }] : []),
-            ...(label ? [{ label }] : []),
-          ],
+      await prisma.payment.create({
+        data: {
+          user_id: request.userId,
+          amount: AMOUNT,
+          label,
+          yookassa_id: data.id,
           status: 'PENDING',
         },
       });
 
-      if (payment) {
-        await prisma.payment.update({
-          where: { id: payment.id },
-          data: { status: 'PAID', paid_at: new Date() },
-        });
-
-        await prisma.user.update({
-          where: { id: payment.user_id },
-          data: { has_paid: true },
-        });
-
-        const scores = await prisma.skillScore.findMany({ where: { user_id: payment.user_id } });
-        if (scores.length) {
-          const skillTotals: Record<string, number> = {};
-          for (const s of scores) skillTotals[s.skill] = s.score;
-          await generateProgram(payment.user_id, skillTotals, true);
-        }
-      }
-    }
-
-    res.json({ ok: true });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Webhook error' });
-  }
-});
-
-// GET /api/payment/status/:label
-paymentRouter.get('/status/:label', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    const payment = await prisma.payment.findFirst({
-      where: { label: req.params.label, user_id: req.userId },
-    });
-    if (!payment) {
-      res.status(404).json({ error: 'Платёж не найден' });
-      return;
-    }
-
-    // If still pending and we have a YooKassa id — poll the API directly (no webhook needed)
-    if (payment.status === 'PENDING' && payment.yookassa_id) {
-      const ykRes = await fetch(`${YOOKASSA_API}/${payment.yookassa_id}`, {
-        headers: { Authorization: yookassaAuth() },
+      return reply.send({
+        confirmationToken: data.confirmation.confirmation_token,
+        label,
       });
-      if (ykRes.ok) {
-        const ykPayment = await ykRes.json() as { status: string };
-        if (ykPayment.status === 'succeeded') {
-          await prisma.payment.update({
-            where: { id: payment.id },
-            data: { status: 'PAID', paid_at: new Date() },
-          });
-          await prisma.user.update({
-            where: { id: payment.user_id },
-            data: { has_paid: true },
-          });
-          const scores = await prisma.skillScore.findMany({ where: { user_id: payment.user_id } });
-          if (scores.length) {
-            const skillTotals: Record<string, number> = {};
-            for (const s of scores) skillTotals[s.skill] = s.score;
-            await generateProgram(payment.user_id, skillTotals, true);
-          }
-          const updated = await prisma.payment.findUnique({ where: { id: payment.id } });
-          res.json({ payment: updated });
-          return;
-        } else if (ykPayment.status === 'canceled') {
-          await prisma.payment.update({
-            where: { id: payment.id },
-            data: { status: 'FAILED' },
-          });
-        }
-      }
+    }
+  );
+
+  // POST /api/payment/webhook — вебхук от ЮKassa
+  fastify.post('/webhook', async (request, reply) => {
+    const body = request.body as {
+      type: string;
+      object?: { id: string; status: string; metadata?: { label?: string } };
+    };
+
+    if (body.type !== 'notification' || !body.object) {
+      return reply.send({ ok: true });
     }
 
-    res.json({ payment });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Ошибка проверки платежа' });
-  }
-});
+    const yookassaId = body.object.id;
+
+    // Перепроверяем статус напрямую в ЮKassa (защита от подделки вебхука)
+    let paymentData: { status: string; metadata?: { label?: string } };
+    try {
+      const auth = getYookassaAuth();
+      const { data } = await axios.get(`${YOOKASSA_API}/payments/${yookassaId}`, { auth });
+      paymentData = data;
+    } catch {
+      return reply.status(200).send({ ok: true });
+    }
+
+    if (paymentData.status !== 'succeeded') {
+      return reply.send({ ok: true });
+    }
+
+    const label = paymentData.metadata?.label;
+    if (!label) return reply.send({ ok: true });
+
+    const payment = await prisma.payment.findFirst({ where: { label } });
+    if (!payment || payment.status === 'PAID') return reply.send({ ok: true });
+
+    await prisma.payment.update({
+      where: { id: payment.id },
+      data: { status: 'PAID', paid_at: new Date() },
+    });
+
+    await prisma.user.update({
+      where: { id: payment.user_id },
+      data: { has_paid: true },
+    });
+
+    const scores = await prisma.skillScore.findMany({ where: { user_id: payment.user_id } });
+    if (scores.length) {
+      const skillTotals: Record<string, number> = {};
+      for (const s of scores) skillTotals[s.skill] = s.score;
+      await generateProgram(payment.user_id, skillTotals, true);
+    }
+
+    return reply.send({ ok: true });
+  });
+
+  // GET /api/payment/status/:label — проверка статуса
+  fastify.get<{ Params: { label: string } }>(
+    '/status/:label',
+    { preHandler: authHook },
+    async (request, reply) => {
+      const { label } = request.params;
+      const payment = await prisma.payment.findFirst({
+        where: { label, user_id: request.userId },
+      });
+
+      if (!payment) return reply.status(404).send({ error: 'Платёж не найден' });
+
+      // Если ещё PENDING — спрашиваем ЮKassa напрямую
+      if (payment.status === 'PENDING' && payment.yookassa_id) {
+        try {
+          const auth = getYookassaAuth();
+          const { data } = await axios.get(`${YOOKASSA_API}/payments/${payment.yookassa_id}`, { auth });
+
+          if (data.status === 'succeeded') {
+            await prisma.payment.update({
+              where: { id: payment.id },
+              data: { status: 'PAID', paid_at: new Date() },
+            });
+            await prisma.user.update({
+              where: { id: payment.user_id },
+              data: { has_paid: true },
+            });
+
+            const scores = await prisma.skillScore.findMany({ where: { user_id: payment.user_id } });
+            if (scores.length) {
+              const skillTotals: Record<string, number> = {};
+              for (const s of scores) skillTotals[s.skill] = s.score;
+              await generateProgram(payment.user_id, skillTotals, true);
+            }
+
+            const updated = await prisma.payment.findUnique({ where: { id: payment.id } });
+            return reply.send({ payment: updated });
+          }
+        } catch {
+          // оставляем текущий статус из БД
+        }
+      }
+
+      return reply.send({ payment });
+    }
+  );
+}

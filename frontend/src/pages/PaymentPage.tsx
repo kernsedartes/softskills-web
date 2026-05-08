@@ -1,13 +1,62 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
 import './PaymentPage.css';
 
+interface YooKassaWidget {
+  render: (containerId: string) => void;
+  destroy: () => void;
+}
+
+declare global {
+  interface Window {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    YooMoneyCheckoutWidget: any;
+  }
+}
+
 export function PaymentPage() {
   const { token, user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [confirmationToken, setConfirmationToken] = useState('');
+  const widgetRef = useRef<YooKassaWidget | null>(null);
+
+  useEffect(() => {
+    if (!confirmationToken) return;
+
+    const scriptId = 'yookassa-widget-script';
+    if (!document.getElementById(scriptId)) {
+      const script = document.createElement('script');
+      script.id = scriptId;
+      script.src = 'https://yookassa.ru/checkout-widget/v1/checkout-widget.js';
+      script.onload = initWidget;
+      document.head.appendChild(script);
+    } else {
+      initWidget();
+    }
+
+    return () => {
+      widgetRef.current?.destroy();
+    };
+  }, [confirmationToken]);
+
+  function initWidget() {
+    if (!confirmationToken || !window.YooMoneyCheckoutWidget) return;
+    widgetRef.current?.destroy();
+    const checkout = new window.YooMoneyCheckoutWidget({
+      confirmation_token: confirmationToken,
+      return_url: `${window.location.origin}/payment/success`,
+      error_callback: (err: unknown) => {
+        console.error('YooKassa widget error:', err);
+        setError('Ошибка платёжного виджета. Попробуйте ещё раз.');
+        setConfirmationToken('');
+      },
+    });
+    checkout.render('yookassa-widget');
+    widgetRef.current = checkout;
+  }
 
   if (user?.has_paid) {
     return (
@@ -27,12 +76,11 @@ export function PaymentPage() {
     setError('');
     try {
       const data = await api.post('/payment/create', {}, token);
-      // Store label to check on return
       sessionStorage.setItem('payment_label', data.label);
-      // Redirect to ЮMoney
-      window.location.href = data.paymentUrl;
+      setConfirmationToken(data.confirmationToken);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Ошибка создания платежа');
+    } finally {
       setLoading(false);
     }
   };
@@ -79,40 +127,45 @@ export function PaymentPage() {
           </div>
         </div>
 
-        {/* Right: payment card */}
+        {/* Right: payment */}
         <div className="payment-card card">
-          <div className="payment-price-block">
-            <div className="payment-price">299 ₽</div>
-            <div className="payment-price-note">единовременно, навсегда</div>
-          </div>
+          {confirmationToken ? (
+            <div id="yookassa-widget" />
+          ) : (
+            <>
+              <div className="payment-price-block">
+                <div className="payment-price">299 ₽</div>
+                <div className="payment-price-note">единовременно, навсегда</div>
+              </div>
 
-          <div className="payment-divider" />
+              <div className="payment-divider" />
 
-          <div className="payment-method">
-            <div className="payment-method-label">Способ оплаты</div>
-            <div className="payment-method-option selected">
-              <span>💳 Банковская карта</span>
-              <span className="payment-method-check">✓</span>
-            </div>
-            <p className="payment-method-note">
-              После нажатия вы будете перенаправлены на защищённую страницу оплаты.
-              По возвращении доступ откроется автоматически.
-            </p>
-          </div>
+              <div className="payment-method">
+                <div className="payment-method-label">Способ оплаты</div>
+                <div className="payment-method-option selected">
+                  <span>💳 Банковская карта</span>
+                  <span className="payment-method-check">✓</span>
+                </div>
+                <p className="payment-method-note">
+                  Оплата через защищённый виджет ЮKassa прямо на этой странице.
+                </p>
+              </div>
 
-          {error && <div className="payment-error">{error}</div>}
+              {error && <div className="payment-error">{error}</div>}
 
-          <button
-            className="btn btn-primary payment-btn"
-            onClick={handlePay}
-            disabled={loading}
-          >
-            {loading ? 'Переходим к оплате...' : 'Оплатить 299 ₽ →'}
-          </button>
+              <button
+                className="btn btn-primary payment-btn"
+                onClick={handlePay}
+                disabled={loading}
+              >
+                {loading ? 'Загружаем форму оплаты...' : 'Оплатить 299 ₽ →'}
+              </button>
 
-          <p className="payment-secure">
-            🔒 Безопасная обработка платежа
-          </p>
+              <p className="payment-secure">
+                🔒 Безопасная обработка — ЮKassa
+              </p>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -163,10 +216,9 @@ export function PaymentSuccessPage() {
         ) : (
           <>
             <div className="success-icon">⏳</div>
-            <h2 className="success-title">Проверьте оплату</h2>
+            <h2 className="success-title">Проверяем оплату</h2>
             <p className="success-desc">
-              Если вы завершили оплату на ЮMoney, нажмите кнопку ниже.
-              Иногда требуется несколько секунд для подтверждения.
+              Если вы завершили оплату, нажмите кнопку ниже. Иногда требуется несколько секунд.
             </p>
 
             {status === 'pending' && (

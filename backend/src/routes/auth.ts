@@ -1,167 +1,174 @@
-import { Router, Request, Response } from 'express';
+import { FastifyInstance } from 'fastify';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
 import { prisma } from '../lib/prisma';
-import { authMiddleware, AuthRequest } from '../middleware/auth';
+import { authHook } from '../plugins/auth';
 
-const storage = multer.diskStorage({
-  destination: (_req: Express.Request, _file: Express.Multer.File, cb: (err: Error | null, dest: string) => void) =>
-    cb(null, path.join(__dirname, '../../uploads/avatars')),
-  filename: (req: Express.Request, file: Express.Multer.File, cb: (err: Error | null, name: string) => void) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `${(req as AuthRequest).userId}${ext}`);
-  },
-});
-const upload = multer({
-  storage,
-  limits: { fileSize: 2 * 1024 * 1024 },
-  fileFilter: (_req: Express.Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
-    cb(null, ['image/jpeg', 'image/png', 'image/webp'].includes(file.mimetype));
-  },
-});
+export async function authRoutes(fastify: FastifyInstance): Promise<void> {
+  // POST /api/auth/register
+  fastify.post<{ Body: { email: string; password: string; name?: string } }>(
+    '/register',
+    async (request, reply) => {
+      const { email, password, name } = request.body;
 
-export const authRouter = Router();
+      if (!email || !password) {
+        return reply.status(400).send({ error: 'Email и пароль обязательны' });
+      }
+      if (password.length < 6) {
+        return reply.status(400).send({ error: 'Пароль минимум 6 символов' });
+      }
 
-// POST /api/auth/register
-authRouter.post('/register', async (req: Request, res: Response) => {
-  try {
-    const { email, password, name } = req.body;
+      const existing = await prisma.user.findUnique({ where: { email } });
+      if (existing) {
+        return reply.status(409).send({ error: 'Пользователь с таким email уже существует' });
+      }
 
-    if (!email || !password) {
-      res.status(400).json({ error: 'Email и пароль обязательны' });
-      return;
+      const hashed = await bcrypt.hash(password, 10);
+      const user = await prisma.user.create({
+        data: { email, password: hashed, name: name || null },
+      });
+
+      const token = jwt.sign(
+        { userId: user.id, email: user.email },
+        process.env.JWT_SECRET || 'secret',
+        { expiresIn: '7d' }
+      );
+
+      return reply.status(201).send({
+        token,
+        user: { id: user.id, email: user.email, name: user.name, has_paid: user.has_paid },
+      });
     }
-    if (password.length < 6) {
-      res.status(400).json({ error: 'Пароль минимум 6 символов' });
-      return;
-    }
+  );
 
-    const existing = await prisma.user.findUnique({ where: { email } });
-    if (existing) {
-      res.status(409).json({ error: 'Пользователь с таким email уже существует' });
-      return;
-    }
+  // POST /api/auth/login
+  fastify.post<{ Body: { email: string; password: string } }>(
+    '/login',
+    async (request, reply) => {
+      const { email, password } = request.body;
 
-    const hashed = await bcrypt.hash(password, 10);
-    const user = await prisma.user.create({
-      data: { email, password: hashed, name: name || null },
+      const user = await prisma.user.findUnique({ where: { email } });
+      if (!user) {
+        return reply.status(401).send({ error: 'Неверный email или пароль' });
+      }
+
+      const valid = await bcrypt.compare(password, user.password);
+      if (!valid) {
+        return reply.status(401).send({ error: 'Неверный email или пароль' });
+      }
+
+      const token = jwt.sign(
+        { userId: user.id, email: user.email },
+        process.env.JWT_SECRET || 'secret',
+        { expiresIn: '7d' }
+      );
+
+      return reply.send({
+        token,
+        user: { id: user.id, email: user.email, name: user.name, has_paid: user.has_paid },
+      });
+    }
+  );
+
+  // GET /api/auth/me
+  fastify.get('/me', { preHandler: authHook }, async (request, reply) => {
+    const user = await prisma.user.findUnique({
+      where: { id: request.userId },
+      select: { id: true, email: true, name: true, has_paid: true, avatar: true, created_at: true },
     });
+    if (!user) return reply.status(404).send({ error: 'Пользователь не найден' });
+    return reply.send({ user });
+  });
 
-    const token = jwt.sign(
-      { userId: user.id, email: user.email },
-      process.env.JWT_SECRET || 'secret',
-      { expiresIn: '7d' }
-    );
-
-    res.status(201).json({
-      token,
-      user: { id: user.id, email: user.email, name: user.name, has_paid: user.has_paid },
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
-  }
-});
-
-// POST /api/auth/login
-authRouter.post('/login', async (req: Request, res: Response) => {
-  try {
-    const { email, password } = req.body;
-
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      res.status(401).json({ error: 'Неверный email или пароль' });
-      return;
+  // PATCH /api/auth/profile
+  fastify.patch<{ Body: { name: string } }>(
+    '/profile',
+    { preHandler: authHook },
+    async (request, reply) => {
+      const { name } = request.body;
+      const user = await prisma.user.update({
+        where: { id: request.userId },
+        data: { name: name?.trim() || null },
+        select: { id: true, email: true, name: true, has_paid: true, created_at: true },
+      });
+      return reply.send({ user });
     }
+  );
 
-    const valid = await bcrypt.compare(password, user.password);
-    if (!valid) {
-      res.status(401).json({ error: 'Неверный email или пароль' });
-      return;
+  // PATCH /api/auth/password
+  fastify.patch<{ Body: { currentPassword: string; newPassword: string } }>(
+    '/password',
+    { preHandler: authHook },
+    async (request, reply) => {
+      const { currentPassword, newPassword } = request.body;
+
+      if (!currentPassword || !newPassword) {
+        return reply.status(400).send({ error: 'Заполните все поля' });
+      }
+      if (newPassword.length < 6) {
+        return reply.status(400).send({ error: 'Новый пароль минимум 6 символов' });
+      }
+
+      const user = await prisma.user.findUnique({ where: { id: request.userId } });
+      if (!user) return reply.status(404).send({ error: 'Пользователь не найден' });
+
+      const valid = await bcrypt.compare(currentPassword, user.password);
+      if (!valid) return reply.status(400).send({ error: 'Неверный текущий пароль' });
+
+      const hashed = await bcrypt.hash(newPassword, 10);
+      await prisma.user.update({ where: { id: request.userId }, data: { password: hashed } });
+
+      return reply.send({ ok: true });
     }
+  );
 
-    const token = jwt.sign(
-      { userId: user.id, email: user.email },
-      process.env.JWT_SECRET || 'secret',
-      { expiresIn: '7d' }
-    );
+  // PATCH /api/auth/email
+  fastify.patch<{ Body: { newEmail: string; password: string } }>(
+    '/email',
+    { preHandler: authHook },
+    async (request, reply) => {
+      const { newEmail, password } = request.body;
 
-    res.json({
-      token,
-      user: { id: user.id, email: user.email, name: user.name, has_paid: user.has_paid },
-    });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
-  }
-});
+      if (!newEmail || !password) {
+        return reply.status(400).send({ error: 'Заполните все поля' });
+      }
 
-// PATCH /api/auth/profile
-authRouter.patch('/profile', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    const { name } = req.body as { name: string };
-    const user = await prisma.user.update({
-      where: { id: req.userId },
-      data: { name: name?.trim() || null },
-      select: { id: true, email: true, name: true, has_paid: true, created_at: true },
-    });
-    res.json({ user });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Ошибка обновления профиля' });
-  }
-});
+      const user = await prisma.user.findUnique({ where: { id: request.userId } });
+      if (!user) return reply.status(404).send({ error: 'Пользователь не найден' });
 
-// PATCH /api/auth/password
-authRouter.patch('/password', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    const { currentPassword, newPassword } = req.body as { currentPassword: string; newPassword: string };
+      const valid = await bcrypt.compare(password, user.password);
+      if (!valid) return reply.status(400).send({ error: 'Неверный пароль' });
 
-    if (!currentPassword || !newPassword) {
-      res.status(400).json({ error: 'Заполните все поля' });
-      return;
+      const existing = await prisma.user.findUnique({ where: { email: newEmail } });
+      if (existing) return reply.status(409).send({ error: 'Email уже занят' });
+
+      const updated = await prisma.user.update({
+        where: { id: request.userId },
+        data: { email: newEmail },
+        select: { id: true, email: true, name: true, has_paid: true, avatar: true, created_at: true },
+      });
+      return reply.send({ user: updated });
     }
-    if (newPassword.length < 6) {
-      res.status(400).json({ error: 'Новый пароль минимум 6 символов' });
-      return;
-    }
+  );
 
-    const user = await prisma.user.findUnique({ where: { id: req.userId } });
-    if (!user) { res.status(404).json({ error: 'Пользователь не найден' }); return; }
-
-    const valid = await bcrypt.compare(currentPassword, user.password);
-    if (!valid) { res.status(400).json({ error: 'Неверный текущий пароль' }); return; }
-
-    const hashed = await bcrypt.hash(newPassword, 10);
-    await prisma.user.update({ where: { id: req.userId }, data: { password: hashed } });
-
-    res.json({ ok: true });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Ошибка смены пароля' });
-  }
-});
-
-// GET /api/auth/stats
-authRouter.get('/stats', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
+  // GET /api/auth/stats
+  fastify.get('/stats', { preHandler: authHook }, async (request, reply) => {
     const [program, scores] = await Promise.all([
       prisma.developmentProgram.findFirst({
-        where: { user_id: req.userId },
+        where: { user_id: request.userId },
         orderBy: { created_at: 'desc' },
         include: { exercises: true },
       }),
-      prisma.skillScore.findMany({ where: { user_id: req.userId } }),
+      prisma.skillScore.findMany({ where: { user_id: request.userId } }),
     ]);
 
     const total = program?.exercises.length ?? 0;
     const completed = program?.exercises.filter(e => e.status === 'completed').length ?? 0;
     const inProgress = program?.exercises.filter(e => e.status === 'in_progress').length ?? 0;
 
-    res.json({
+    return reply.send({
       exercisesTotal: total,
       exercisesCompleted: completed,
       exercisesInProgress: inProgress,
@@ -169,95 +176,38 @@ authRouter.get('/stats', authMiddleware, async (req: AuthRequest, res: Response)
       testDate: scores[0]?.created_at ?? null,
       programDate: program?.created_at ?? null,
     });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Ошибка загрузки статистики' });
-  }
-});
+  });
 
-// PATCH /api/auth/email
-authRouter.patch('/email', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    const { newEmail, password } = req.body as { newEmail: string; password: string };
+  // POST /api/auth/avatar
+  fastify.post('/avatar', { preHandler: authHook }, async (request, reply) => {
+    const data = await request.file({ limits: { fileSize: 2 * 1024 * 1024 } });
+    if (!data) return reply.status(400).send({ error: 'Файл не загружен' });
 
-    if (!newEmail || !password) {
-      res.status(400).json({ error: 'Заполните все поля' });
-      return;
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(data.mimetype)) {
+      await data.toBuffer();
+      return reply.status(400).send({ error: 'Допустимые форматы: jpg, png, webp' });
     }
 
-    const user = await prisma.user.findUnique({ where: { id: req.userId } });
-    if (!user) { res.status(404).json({ error: 'Пользователь не найден' }); return; }
+    const ext = path.extname(data.filename) || '.jpg';
+    const filename = `${request.userId}${ext}`;
+    const dir = path.join(__dirname, '../../uploads/avatars');
+    await fs.promises.mkdir(dir, { recursive: true });
+    await fs.promises.writeFile(path.join(dir, filename), await data.toBuffer());
 
-    const valid = await bcrypt.compare(password, user.password);
-    if (!valid) { res.status(400).json({ error: 'Неверный пароль' }); return; }
+    const avatarUrl = `/uploads/avatars/${filename}`;
+    await prisma.user.update({ where: { id: request.userId }, data: { avatar: avatarUrl } });
 
-    const existing = await prisma.user.findUnique({ where: { email: newEmail } });
-    if (existing) { res.status(409).json({ error: 'Email уже занят' }); return; }
+    return reply.send({ avatarUrl });
+  });
 
-    const updated = await prisma.user.update({
-      where: { id: req.userId },
-      data: { email: newEmail },
-      select: { id: true, email: true, name: true, has_paid: true, avatar: true, created_at: true },
-    });
-    res.json({ user: updated });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Ошибка смены email' });
-  }
-});
-
-// POST /api/auth/avatar
-authRouter.post('/avatar', authMiddleware, upload.single('avatar'), async (req: AuthRequest & { file?: Express.Multer.File }, res: Response) => {
-  try {
-    if (!req.file) {
-      res.status(400).json({ error: 'Файл не загружен' });
-      return;
-    }
-
-    const avatarUrl = `/uploads/avatars/${req.file.filename}`;
-
-    await prisma.user.update({
-      where: { id: req.userId },
-      data: { avatar: avatarUrl },
-    });
-
-    res.json({ avatarUrl });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Ошибка загрузки аватара' });
-  }
-});
-
-// DELETE /api/auth/avatar
-authRouter.delete('/avatar', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    const user = await prisma.user.findUnique({ where: { id: req.userId } });
+  // DELETE /api/auth/avatar
+  fastify.delete('/avatar', { preHandler: authHook }, async (request, reply) => {
+    const user = await prisma.user.findUnique({ where: { id: request.userId } });
     if (user?.avatar) {
       const filePath = path.join(__dirname, '../../', user.avatar);
       if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
     }
-    await prisma.user.update({ where: { id: req.userId }, data: { avatar: null } });
-    res.json({ ok: true });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Ошибка удаления аватара' });
-  }
-});
-
-// GET /api/auth/me
-authRouter.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    const user = await prisma.user.findUnique({
-      where: { id: req.userId },
-      select: { id: true, email: true, name: true, has_paid: true, avatar: true, created_at: true },
-    });
-    if (!user) {
-      res.status(404).json({ error: 'Пользователь не найден' });
-      return;
-    }
-    res.json({ user });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Внутренняя ошибка сервера' });
-  }
-});
+    await prisma.user.update({ where: { id: request.userId }, data: { avatar: null } });
+    return reply.send({ ok: true });
+  });
+}
