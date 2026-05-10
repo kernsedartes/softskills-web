@@ -32,7 +32,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
       const token = jwt.sign(
         { userId: user.id, email: user.email },
-        process.env.JWT_SECRET || 'secret',
+        process.env.JWT_SECRET!,
         { expiresIn: '7d' }
       );
 
@@ -61,7 +61,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
       const token = jwt.sign(
         { userId: user.id, email: user.email },
-        process.env.JWT_SECRET || 'secret',
+        process.env.JWT_SECRET!,
         { expiresIn: '7d' }
       );
 

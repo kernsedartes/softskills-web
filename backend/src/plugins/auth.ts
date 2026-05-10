@@ -15,7 +15,7 @@ export async function authHook(request: FastifyRequest, reply: FastifyReply): Pr
   }
   const token = authHeader.split(' ')[1];
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET || 'secret') as {
+    const payload = jwt.verify(token, process.env.JWT_SECRET!) as {
       userId: string;
       email: string;
     };

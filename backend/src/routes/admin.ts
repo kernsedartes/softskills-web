@@ -29,6 +29,39 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
     return reply.send({ users });
   });
 
+  // PATCH /api/admin/users/:id
+  fastify.patch<{ Params: { id: string }; Body: { has_paid: boolean } }>(
+    '/users/:id',
+    async (request, reply) => {
+      const user = await prisma.user.update({
+        where: { id: request.params.id },
+        data: { has_paid: request.body.has_paid },
+        select: { id: true, email: true, name: true, has_paid: true, created_at: true },
+      });
+      return reply.send({ user });
+    }
+  );
+
+  // GET /api/admin/users/:id/scores
+  fastify.get<{ Params: { id: string } }>(
+    '/users/:id/scores',
+    async (request, reply) => {
+      const scores = await prisma.skillScore.findMany({
+        where: { user_id: request.params.id },
+        orderBy: { score: 'desc' },
+      });
+      return reply.send({ scores });
+    }
+  );
+
+  // GET /api/admin/questions
+  fastify.get('/questions', async (_request, reply) => {
+    const questions = await prisma.question.findMany({
+      orderBy: [{ skill: 'asc' }, { order: 'asc' }],
+    });
+    return reply.send({ questions });
+  });
+
   // POST /api/admin/exercises
   fastify.post<{ Body: { title: string; description: string; skill: string; difficulty?: number; is_free?: boolean } }>(
     '/exercises',

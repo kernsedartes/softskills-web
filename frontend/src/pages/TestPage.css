@@ -228,6 +228,7 @@
   font-family: var(--font-display);
   font-size: 1.3rem;
   font-weight: 700;
+  color: var(--text-primary);
 }
 .test-variant-meta {
   display: flex;
