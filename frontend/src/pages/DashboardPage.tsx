@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
 import { SkillScore, SKILL_LABELS, SKILL_ICONS } from '../types';
-import { RadarChart, PolarGrid, PolarAngleAxis, Radar, ResponsiveContainer, Tooltip } from 'recharts';
+import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, ResponsiveContainer, Tooltip } from 'recharts';
 import { SkeletonCard } from '../components/Skeleton';
 import './DashboardPage.css';
 
@@ -28,10 +28,10 @@ export function DashboardPage() {
   const radarData = scores.map(s => ({
     skill: SKILL_LABELS[s.skill],
     score: s.score,
-    fullMark: 20,
+    fullMark: 100,
   }));
 
-  const maxScore = 20;
+  const maxScore = 100;
 
   if (loading) {
     return (
@@ -84,6 +84,7 @@ export function DashboardPage() {
             <ResponsiveContainer width="100%" height={320}>
               <RadarChart data={radarData}>
                 <PolarGrid stroke="rgba(255,255,255,0.07)" />
+                <PolarRadiusAxis domain={[0, 100]} tick={false} axisLine={false} />
                 <PolarAngleAxis
                   dataKey="skill"
                   tick={{ fill: 'rgba(240,238,255,0.55)', fontSize: 12, fontFamily: 'Inter' }}

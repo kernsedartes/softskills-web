@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { api } from '../api/client';
 import { SkillScore, SKILL_LABELS, SKILL_ICONS, Skill } from '../types';
 import {
-  RadarChart, PolarGrid, PolarAngleAxis, Radar,
+  RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar,
   ResponsiveContainer, Tooltip, Legend,
   LineChart, Line, XAxis, YAxis, CartesianGrid,
 } from 'recharts';
@@ -20,13 +20,6 @@ const LEVEL_LABEL = (score: number): { label: string; color: string } => {
   return { label: 'Требует внимания', color: '#f87171' };
 };
 
-const SKILL_DESC: Record<Skill, string> = {
-  communication: 'Умение ясно выражать мысли, слушать и выступать перед аудиторией.',
-  leadership: 'Способность мотивировать, делегировать и вести команду к цели.',
-  self_organization: 'Планирование, расстановка приоритетов и управление временем.',
-  empathy: 'Понимание чувств других, поддержка и умение принять чужую точку зрения.',
-  critical_thinking: 'Анализ информации, поиск нестандартных решений и логическая аргументация.',
-};
 
 const SKILL_COLORS: Record<Skill, string> = {
   communication: '#7c6aff',
@@ -103,12 +96,18 @@ export function ResultsPage() {
         {/* Radar */}
         <div className="card results-radar">
           <h2 className="card-title">Профиль компетенций</h2>
-          <ResponsiveContainer width="100%" height={300}>
-            <RadarChart data={radarData}>
+          <ResponsiveContainer width="100%" height={380}>
+            <RadarChart data={radarData} outerRadius="62%" margin={{ top: 24, right: 40, bottom: 24, left: 40 }}>
               <PolarGrid stroke="rgba(255,255,255,0.07)" />
+              <PolarRadiusAxis
+                domain={[0, MAX_SCORE]}
+                tickCount={6}
+                tick={{ fill: 'rgba(240,238,255,0.3)', fontSize: 9 }}
+                axisLine={false}
+              />
               <PolarAngleAxis
                 dataKey="skill"
-                tick={{ fill: 'rgba(240,238,255,0.55)', fontSize: 11, fontFamily: 'Inter' }}
+                tick={{ fill: 'rgba(240,238,255,0.65)', fontSize: 12, fontFamily: 'Inter' }}
               />
               <Tooltip
                 contentStyle={{
@@ -220,32 +219,6 @@ export function ResultsPage() {
               </div>
             </div>
           )}
-        </div>
-
-        {/* Detailed list */}
-        <div className="card results-detail">
-          <h2 className="card-title">Подробный разбор</h2>
-          <div className="detail-list">
-            {[...scores].sort((a, b) => b.score - a.score).map(s => {
-              const pct = Math.round((s.score / MAX_SCORE) * 100);
-              const { label, color } = LEVEL_LABEL(s.score);
-              return (
-                <div key={s.skill} className={`detail-item skill-${s.skill}`}>
-                  <div className="detail-head">
-                    <span className="detail-name">{SKILL_ICONS[s.skill]} {SKILL_LABELS[s.skill]}</span>
-                    <span className="detail-badge" style={{ color, borderColor: color, background: `${color}18` }}>
-                      {label}
-                    </span>
-                  </div>
-                  <div className="detail-track">
-                    <div className="detail-fill" style={{ width: `${pct}%`, background: 'var(--skill-color)' }} />
-                    <span className="detail-pct">{s.score}/{MAX_SCORE}</span>
-                  </div>
-                  <p className="detail-desc">{SKILL_DESC[s.skill]}</p>
-                </div>
-              );
-            })}
-          </div>
         </div>
 
         {/* CTA */}

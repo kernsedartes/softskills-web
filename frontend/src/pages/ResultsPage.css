@@ -43,7 +43,7 @@
   .results-grid { grid-template-columns: 1fr; }
 }
 
-.results-radar { padding: 28px; }
+.results-radar { padding: 28px 20px; }
 
 /* Summary */
 .results-summary { display: flex; flex-direction: column; gap: 16px; }

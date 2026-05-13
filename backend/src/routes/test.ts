@@ -37,12 +37,37 @@ export async function testRoutes(fastify: FastifyInstance): Promise<void> {
         select: { id: true, text: true, skill: true, options: true, order: true },
       });
 
-      // Take first `limit` questions per skill
+      // Take first `limit` questions per skill, then interleave across skills
       const countPerSkill: Record<string, number> = {};
-      const questions = allQuestions.filter(q => {
+      const bySkill: Record<string, typeof allQuestions> = {};
+      for (const q of allQuestions) {
         countPerSkill[q.skill] = (countPerSkill[q.skill] ?? 0) + 1;
-        return countPerSkill[q.skill] <= limit;
-      });
+        if (countPerSkill[q.skill] <= limit) {
+          if (!bySkill[q.skill]) bySkill[q.skill] = [];
+          bySkill[q.skill].push(q);
+        }
+      }
+
+      // Shuffle within each skill group, then interleave across skills
+      const shuffle = <T>(arr: T[]): T[] => {
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+        return arr;
+      };
+
+      for (const skill of Object.keys(bySkill)) {
+        bySkill[skill] = shuffle(bySkill[skill]);
+      }
+
+      const skillKeys = shuffle(Object.keys(bySkill));
+      const questions: typeof allQuestions = [];
+      for (let i = 0; i < limit; i++) {
+        for (const skill of skillKeys) {
+          if (bySkill[skill][i]) questions.push(bySkill[skill][i]);
+        }
+      }
 
       return reply.send({ questions, variant, questionsPerSkill: limit });
     }
@@ -114,21 +139,20 @@ export async function testRoutes(fastify: FastifyInstance): Promise<void> {
         });
       }
 
-      // Raw totals per skill
+      // Count "passing" answers per skill (value >= 4 = "Часто" или "Всегда")
+      // Gives clean scores: express 0/33/67/100, standard 0/20/40/60/80/100
       const rawTotals: Record<string, number> = {};
       for (const q of variantQuestions) {
         if (!(q.skill in rawTotals)) rawTotals[q.skill] = 0;
       }
       for (const ans of answers) {
         const q = qMap.get(ans.questionId);
-        if (q) rawTotals[q.skill] += ans.value;
+        if (q) rawTotals[q.skill] += ans.value >= 4 ? 1 : 0;
       }
 
-      // Normalize to 0-100 so express and standard scores are comparable
-      const maxRaw = questionsPerSkill * 5;
       const skillTotals: Record<string, number> = {};
       for (const [skill, raw] of Object.entries(rawTotals)) {
-        skillTotals[skill] = Math.round((raw / maxRaw) * 100);
+        skillTotals[skill] = Math.round((raw / questionsPerSkill) * 100);
       }
 
       for (const [skill, score] of Object.entries(skillTotals)) {
