@@ -33,32 +33,26 @@ export async function testRoutes(fastify: FastifyInstance): Promise<void> {
       }
 
       const allQuestions = await prisma.question.findMany({
-        orderBy: { order: 'asc' },
         select: { id: true, text: true, skill: true, options: true, order: true },
       });
 
-      // Take first `limit` questions per skill, then interleave across skills
-      const countPerSkill: Record<string, number> = {};
-      const bySkill: Record<string, typeof allQuestions> = {};
-      for (const q of allQuestions) {
-        countPerSkill[q.skill] = (countPerSkill[q.skill] ?? 0) + 1;
-        if (countPerSkill[q.skill] <= limit) {
-          if (!bySkill[q.skill]) bySkill[q.skill] = [];
-          bySkill[q.skill].push(q);
-        }
-      }
-
-      // Shuffle within each skill group, then interleave across skills
       const shuffle = <T>(arr: T[]): T[] => {
-        for (let i = arr.length - 1; i > 0; i--) {
+        const a = [...arr];
+        for (let i = a.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
-          [arr[i], arr[j]] = [arr[j], arr[i]];
+          [a[i], a[j]] = [a[j], a[i]];
         }
-        return arr;
+        return a;
       };
 
+      // Group by skill, shuffle the full pool, then pick `limit` random questions per skill
+      const bySkill: Record<string, typeof allQuestions> = {};
+      for (const q of allQuestions) {
+        if (!bySkill[q.skill]) bySkill[q.skill] = [];
+        bySkill[q.skill].push(q);
+      }
       for (const skill of Object.keys(bySkill)) {
-        bySkill[skill] = shuffle(bySkill[skill]);
+        bySkill[skill] = shuffle(bySkill[skill]).slice(0, limit);
       }
 
       const skillKeys = shuffle(Object.keys(bySkill));
@@ -110,26 +104,18 @@ export async function testRoutes(fastify: FastifyInstance): Promise<void> {
         : 'standard';
       const questionsPerSkill = QUESTIONS_PER_SKILL[variant];
 
-      const allQuestions = await prisma.question.findMany({ orderBy: { order: 'asc' } });
+      const allQuestions = await prisma.question.findMany();
+      const qMap = new Map(allQuestions.map(q => [q.id, q]));
 
-      // Rebuild the same filtered set as /questions
-      const countPerSkill: Record<string, number> = {};
-      const variantQuestions = allQuestions.filter(q => {
-        countPerSkill[q.skill] = (countPerSkill[q.skill] ?? 0) + 1;
-        return countPerSkill[q.skill] <= questionsPerSkill;
-      });
-
-      if (!answers || answers.length !== variantQuestions.length) {
+      const expectedCount = questionsPerSkill * 5;
+      if (!answers || answers.length !== expectedCount) {
         return reply.status(400).send({
-          error: `Необходимо ответить на все ${variantQuestions.length} вопросов`,
+          error: `Необходимо ответить на все ${expectedCount} вопросов`,
         });
       }
 
-      const qMap = new Map(variantQuestions.map(q => [q.id, q]));
-
       for (const ans of answers) {
-        const q = qMap.get(ans.questionId);
-        if (!q) continue;
+        if (!qMap.has(ans.questionId)) continue;
         await prisma.userAnswer.upsert({
           where: {
             user_id_question_id: { user_id: request.userId, question_id: ans.questionId },
@@ -139,20 +125,18 @@ export async function testRoutes(fastify: FastifyInstance): Promise<void> {
         });
       }
 
-      // Count "passing" answers per skill (value >= 4 = "Часто" или "Всегда")
-      // Gives clean scores: express 0/33/67/100, standard 0/20/40/60/80/100
-      const rawTotals: Record<string, number> = {};
-      for (const q of variantQuestions) {
-        if (!(q.skill in rawTotals)) rawTotals[q.skill] = 0;
-      }
+      // Score: count passing answers (>= 4) per skill from the submitted set
+      const passingPerSkill: Record<string, number> = {};
       for (const ans of answers) {
         const q = qMap.get(ans.questionId);
-        if (q) rawTotals[q.skill] += ans.value >= 4 ? 1 : 0;
+        if (!q) continue;
+        if (!(q.skill in passingPerSkill)) passingPerSkill[q.skill] = 0;
+        if (ans.value >= 4) passingPerSkill[q.skill]++;
       }
 
       const skillTotals: Record<string, number> = {};
-      for (const [skill, raw] of Object.entries(rawTotals)) {
-        skillTotals[skill] = Math.round((raw / questionsPerSkill) * 100);
+      for (const [skill, passing] of Object.entries(passingPerSkill)) {
+        skillTotals[skill] = Math.round((passing / questionsPerSkill) * 100);
       }
 
       for (const [skill, score] of Object.entries(skillTotals)) {
