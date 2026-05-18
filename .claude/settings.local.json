@@ -6,7 +6,9 @@
       "Bash(npx jest *)",
       "Bash(npx ts-node *)",
       "Bash(node -e 'const {PrismaClient} = require\\('\\\\''@prisma/client'\\\\''\\); const p = new PrismaClient\\(\\); p.question.count\\(\\).then\\(c => console.log\\('\\\\''Вопросов в БД:'\\\\'', c\\)\\).catch\\(e => console.error\\(e\\)\\).finally\\(\\(\\) => p.$disconnect\\(\\)\\)')",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "Bash(node *)",
+      "PowerShell(Get-Command *)"
     ]
   }
 }

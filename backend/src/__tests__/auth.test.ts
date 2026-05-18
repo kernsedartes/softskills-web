@@ -198,4 +198,175 @@ describe('Auth routes', () => {
       expect(res.statusCode).toBe(401);
     });
   });
+
+  // ─── Смена имени ──────────────────────────────────────────────────────────────
+
+  describe('PATCH /api/auth/profile', () => {
+    it('обновляет имя пользователя', async () => {
+      (prisma.user.update as jest.Mock).mockResolvedValue({
+        id: 'user-123',
+        email: 'test@example.com',
+        name: 'Новое Имя',
+        has_paid: false,
+        created_at: new Date().toISOString(),
+      });
+
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/auth/profile',
+        headers: { authorization: 'Bearer mock.jwt.token' },
+        payload: { name: 'Новое Имя' },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(JSON.parse(res.body).user.name).toBe('Новое Имя');
+    });
+
+    it('возвращает 401 без токена', async () => {
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/auth/profile',
+        payload: { name: 'test' },
+      });
+      expect(res.statusCode).toBe(401);
+    });
+  });
+
+  // ─── Смена пароля ─────────────────────────────────────────────────────────────
+
+  describe('PATCH /api/auth/password', () => {
+    const existingUser = {
+      id: 'user-123',
+      email: 'test@example.com',
+      password: '$2a$10$mockhash',
+    };
+
+    it('успешно меняет пароль при верном текущем пароле', async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue(existingUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      (prisma.user.update as jest.Mock).mockResolvedValue({});
+
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/auth/password',
+        headers: { authorization: 'Bearer mock.jwt.token' },
+        payload: { currentPassword: 'oldpass123', newPassword: 'newpass123' },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(JSON.parse(res.body).ok).toBe(true);
+    });
+
+    it('возвращает 400 при неверном текущем пароле', async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue(existingUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/auth/password',
+        headers: { authorization: 'Bearer mock.jwt.token' },
+        payload: { currentPassword: 'wrongpass', newPassword: 'newpass123' },
+      });
+
+      expect(res.statusCode).toBe(400);
+      expect(JSON.parse(res.body).error).toMatch(/неверный/i);
+    });
+
+    it('возвращает 400 если новый пароль короче 6 символов', async () => {
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/auth/password',
+        headers: { authorization: 'Bearer mock.jwt.token' },
+        payload: { currentPassword: 'oldpass', newPassword: '123' },
+      });
+
+      expect(res.statusCode).toBe(400);
+      expect(JSON.parse(res.body).error).toMatch(/6 символов/);
+    });
+
+    it('возвращает 400 если поля не переданы', async () => {
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/auth/password',
+        headers: { authorization: 'Bearer mock.jwt.token' },
+        payload: {},
+      });
+
+      expect(res.statusCode).toBe(400);
+    });
+  });
+
+  // ─── Смена email ──────────────────────────────────────────────────────────────
+
+  describe('PATCH /api/auth/email', () => {
+    const existingUser = {
+      id: 'user-123',
+      email: 'old@example.com',
+      password: '$2a$10$mockhash',
+    };
+
+    it('успешно меняет email', async () => {
+      (prisma.user.findUnique as jest.Mock)
+        .mockResolvedValueOnce(existingUser)  // find current user
+        .mockResolvedValueOnce(null);          // check new email free
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      (prisma.user.update as jest.Mock).mockResolvedValue({
+        ...existingUser,
+        email: 'new@example.com',
+        avatar: null,
+        created_at: new Date().toISOString(),
+      });
+
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/auth/email',
+        headers: { authorization: 'Bearer mock.jwt.token' },
+        payload: { newEmail: 'new@example.com', password: 'correctpass' },
+      });
+
+      expect(res.statusCode).toBe(200);
+      expect(JSON.parse(res.body).user.email).toBe('new@example.com');
+    });
+
+    it('возвращает 409 если новый email уже занят', async () => {
+      (prisma.user.findUnique as jest.Mock)
+        .mockResolvedValueOnce(existingUser)
+        .mockResolvedValueOnce({ id: 'other-user' });
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/auth/email',
+        headers: { authorization: 'Bearer mock.jwt.token' },
+        payload: { newEmail: 'taken@example.com', password: 'correctpass' },
+      });
+
+      expect(res.statusCode).toBe(409);
+    });
+
+    it('возвращает 400 при неверном пароле', async () => {
+      (prisma.user.findUnique as jest.Mock).mockResolvedValue(existingUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/auth/email',
+        headers: { authorization: 'Bearer mock.jwt.token' },
+        payload: { newEmail: 'new@example.com', password: 'wrongpass' },
+      });
+
+      expect(res.statusCode).toBe(400);
+    });
+
+    it('возвращает 400 если поля не переданы', async () => {
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/api/auth/email',
+        headers: { authorization: 'Bearer mock.jwt.token' },
+        payload: {},
+      });
+
+      expect(res.statusCode).toBe(400);
+    });
+  });
 });
