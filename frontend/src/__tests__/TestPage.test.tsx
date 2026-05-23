@@ -10,7 +10,7 @@ import { TestPage } from '../pages/TestPage';
 const mockNavigate = vi.fn();
 
 vi.mock('../context/AuthContext', () => ({
-  useAuth: () => ({ token: 'mock-token' }),
+  useAuth: () => ({}),
 }));
 
 vi.mock('react-router-dom', async () => {
@@ -75,8 +75,7 @@ describe('TestPage', () => {
 
       await waitFor(() => {
         expect(api.get).toHaveBeenCalledWith(
-          expect.stringContaining('variant=express'),
-          'mock-token'
+          expect.stringContaining('variant=express')
         );
       });
     });

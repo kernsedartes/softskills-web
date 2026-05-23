@@ -2,6 +2,7 @@
 // Fastify.inject() — реальные HTTP без сети, Prisma и generateProgram замоканы
 
 import Fastify, { FastifyInstance } from 'fastify';
+import cookie from '@fastify/cookie';
 import { testRoutes } from '../routes/test';
 import { prisma } from '../lib/prisma';
 import { generateProgram } from '../services/recommendation';
@@ -47,11 +48,12 @@ function makeQuestions(total: number) {
 
 describe('Test routes', () => {
   let app: FastifyInstance;
-  const authHeader = { authorization: 'Bearer mock.jwt.token' };
+  const authHeader = { cookie: 'token=mock.jwt.token' };
 
   beforeAll(async () => {
     process.env.JWT_SECRET = 'test-secret';
     app = Fastify({ logger: false });
+    await app.register(cookie);
     await app.register(testRoutes, { prefix: '/api/test' });
     await app.ready();
   });
@@ -145,7 +147,7 @@ describe('Test routes', () => {
       expect(res.statusCode).toBe(200);
     });
 
-    it('возвращает 401 без заголовка Authorization', async () => {
+    it('возвращает 401 без cookie', async () => {
       const res = await app.inject({ method: 'GET', url: '/api/test/questions' });
       expect(res.statusCode).toBe(401);
     });

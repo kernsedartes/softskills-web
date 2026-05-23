@@ -64,7 +64,7 @@ describe('LoginPage', () => {
     await user.click(screen.getByRole('button', { name: /войти/i }));
 
     await waitFor(() => {
-      expect(mockLogin).toHaveBeenCalledWith('jwt', expect.objectContaining({ email: 'user@example.com' }));
+      expect(mockLogin).toHaveBeenCalledWith(expect.objectContaining({ email: 'user@example.com' }));
       expect(mockNavigate).toHaveBeenCalledWith('/dashboard');
     });
   });
@@ -136,7 +136,7 @@ describe('RegisterPage', () => {
     await user.click(screen.getByRole('button', { name: /зарегистрироваться/i }));
 
     await waitFor(() => {
-      expect(mockLogin).toHaveBeenCalledWith('jwt', expect.objectContaining({ email: 'new@example.com' }));
+      expect(mockLogin).toHaveBeenCalledWith(expect.objectContaining({ email: 'new@example.com' }));
       expect(mockNavigate).toHaveBeenCalledWith('/dashboard');
     });
   });

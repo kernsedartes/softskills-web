@@ -1,13 +1,14 @@
 import { prisma } from '../lib/prisma';
 import { Skill } from '@prisma/client';
+import { sortBy } from 'lodash';
 
 export async function generateProgram(
   userId: string,
   skillTotals: Record<string, number>,
   hasPaid: boolean
 ): Promise<void> {
-  // Sort skills by score ascending — weakest first
-  const sorted = Object.entries(skillTotals).sort(([, a], [, b]) => a - b);
+  // sortBy from lodash guarantees stable sort regardless of JS engine
+  const sorted = sortBy(Object.entries(skillTotals), ([, score]) => score);
   const targetSkills = sorted.slice(0, 3).map(([skill]) => skill as Skill);
 
   // Delete existing program for this user

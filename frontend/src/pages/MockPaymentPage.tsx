@@ -7,7 +7,7 @@ import './MockPaymentPage.css';
 export function MockPaymentPage() {
   const [searchParams] = useSearchParams();
   const label = searchParams.get('label') || '';
-  const { token, refreshUser } = useAuth();
+  const { refreshUser } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -31,7 +31,7 @@ export function MockPaymentPage() {
     setLoading(true);
     setError('');
     try {
-      await api.post('/payment/mock-confirm', { label }, token);
+      await api.post('/payment/mock-confirm', { label });
       await refreshUser();
       sessionStorage.setItem('payment_label', label);
       navigate('/payment/success');

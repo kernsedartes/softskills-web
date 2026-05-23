@@ -2,6 +2,7 @@
 // Fastify.inject() — реальные HTTP без сети, Prisma замокирован
 
 import Fastify, { FastifyInstance } from 'fastify';
+import cookie from '@fastify/cookie';
 import { programRoutes } from '../routes/program';
 import { prisma } from '../lib/prisma';
 
@@ -46,11 +47,12 @@ const mockProgram = {
 
 describe('Program routes', () => {
   let app: FastifyInstance;
-  const authHeader = { authorization: 'Bearer mock.jwt.token' };
+  const authHeader = { cookie: 'token=mock.jwt.token' };
 
   beforeAll(async () => {
     process.env.JWT_SECRET = 'test-secret';
     app = Fastify({ logger: false });
+    await app.register(cookie);
     await app.register(programRoutes, { prefix: '/api/program' });
     await app.ready();
   });
@@ -94,7 +96,7 @@ describe('Program routes', () => {
       expect(JSON.parse(res.body).error).toMatch(/не найдена/i);
     });
 
-    it('возвращает 401 без заголовка Authorization', async () => {
+    it('возвращает 401 без cookie', async () => {
       const res = await app.inject({ method: 'GET', url: '/api/program' });
       expect(res.statusCode).toBe(401);
     });
@@ -189,7 +191,7 @@ describe('Program routes', () => {
       expect(res.statusCode).toBe(404);
     });
 
-    it('возвращает 401 без токена', async () => {
+    it('возвращает 401 без cookie', async () => {
       const res = await app.inject({
         method: 'PATCH',
         url: '/api/program/exercise/pe-1/status',

@@ -35,7 +35,7 @@ const VARIANTS: { id: Variant; label: string; description: string; count: number
 ];
 
 export function TestPage() {
-  const { token } = useAuth();
+  useAuth();
   const navigate = useNavigate();
 
   const [variant, setVariant] = useState<Variant | null>(null);
@@ -50,7 +50,7 @@ export function TestPage() {
     if (!variant) return;
     setLoading(true);
     setError('');
-    api.get(`/test/questions?variant=${variant}`, token)
+    api.get(`/test/questions?variant=${variant}`)
       .then(data => setQuestions(data.questions))
       .catch(err => {
         if (err?.message?.includes('retake_locked') || err?.status === 403) {
@@ -60,7 +60,7 @@ export function TestPage() {
         }
       })
       .finally(() => setLoading(false));
-  }, [variant, token]);
+  }, [variant]);
 
   const q = questions[current];
   const answered = answers[q?.id];
@@ -84,7 +84,7 @@ export function TestPage() {
     setError('');
     try {
       const payload = Object.entries(answers).map(([questionId, value]) => ({ questionId, value }));
-      await api.post('/test/submit', { answers: payload, variant }, token);
+      await api.post('/test/submit', { answers: payload, variant });
       navigate('/results');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Ошибка отправки');

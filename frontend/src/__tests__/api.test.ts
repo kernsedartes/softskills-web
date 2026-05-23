@@ -1,5 +1,5 @@
 // Unit-тесты для api/client.ts
-// Проверяет: заголовки, токен, обработку ошибок, методы
+// Проверяет: заголовки, credentials, обработку ошибок, методы
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { api } from '../api/client';
@@ -24,7 +24,7 @@ describe('api client', () => {
     it('отправляет GET на правильный URL', async () => {
       mockFetch.mockResolvedValue(makeResponse({ user: { id: '1' } }));
 
-      await api.get('/auth/me', 'token-123');
+      await api.get('/auth/me');
 
       expect(mockFetch).toHaveBeenCalledWith(
         '/api/auth/me',
@@ -32,16 +32,16 @@ describe('api client', () => {
       );
     });
 
-    it('добавляет Authorization заголовок если токен передан', async () => {
+    it('отправляет запрос с credentials: include', async () => {
       mockFetch.mockResolvedValue(makeResponse({}));
 
-      await api.get('/auth/me', 'my-token');
+      await api.get('/auth/me');
 
       const [, options] = mockFetch.mock.calls[0];
-      expect(options.headers['Authorization']).toBe('Bearer my-token');
+      expect(options.credentials).toBe('include');
     });
 
-    it('не добавляет Authorization если токен не передан', async () => {
+    it('не добавляет Authorization заголовок', async () => {
       mockFetch.mockResolvedValue(makeResponse({}));
 
       await api.get('/auth/me');
@@ -53,7 +53,7 @@ describe('api client', () => {
     it('возвращает распарсенный JSON', async () => {
       mockFetch.mockResolvedValue(makeResponse({ scores: [{ skill: 'communication', score: 80 }] }));
 
-      const result = await api.get('/test/results', 'tok');
+      const result = await api.get('/test/results');
 
       expect(result.scores[0].score).toBe(80);
     });
@@ -61,7 +61,7 @@ describe('api client', () => {
 
   describe('POST запросы', () => {
     it('сериализует тело в JSON', async () => {
-      mockFetch.mockResolvedValue(makeResponse({ token: 'jwt' }, true, 201));
+      mockFetch.mockResolvedValue(makeResponse({ user: { id: '1' } }, true, 201));
 
       await api.post('/auth/register', { email: 'a@b.com', password: '123456' });
 
@@ -81,14 +81,14 @@ describe('api client', () => {
   });
 
   describe('PATCH запросы', () => {
-    it('отправляет PATCH с телом и токеном', async () => {
+    it('отправляет PATCH с телом', async () => {
       mockFetch.mockResolvedValue(makeResponse({ user: { name: 'Иван' } }));
 
-      await api.patch('/auth/profile', { name: 'Иван' }, 'my-token');
+      await api.patch('/auth/profile', { name: 'Иван' });
 
       const [, options] = mockFetch.mock.calls[0];
       expect(options.method).toBe('PATCH');
-      expect(options.headers['Authorization']).toBe('Bearer my-token');
+      expect(options.credentials).toBe('include');
     });
   });
 
@@ -96,7 +96,7 @@ describe('api client', () => {
     it('отправляет DELETE без тела', async () => {
       mockFetch.mockResolvedValue(makeResponse({ ok: true }));
 
-      await api.delete('/auth/avatar', 'my-token');
+      await api.delete('/auth/avatar');
 
       const [, options] = mockFetch.mock.calls[0];
       expect(options.method).toBe('DELETE');

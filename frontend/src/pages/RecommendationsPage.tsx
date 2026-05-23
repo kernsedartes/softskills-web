@@ -16,18 +16,18 @@ const TYPE_ICON: Record<ResourceType, string> = {
 const SKILLS = ['communication', 'leadership', 'self_organization', 'empathy', 'critical_thinking'] as Skill[];
 
 export function RecommendationsPage() {
-  const { isAdmin, token } = useAuth();
+  const { isAdmin } = useAuth();
   const [resources, setResources] = useState<Resource[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeSkill, setActiveSkill] = useState<Skill>('communication');
   const [activeType, setActiveType] = useState<ResourceType | 'all'>('all');
 
   useEffect(() => {
-    api.get('/resources', token ?? undefined)
+    api.get('/resources')
       .then(d => setResources(d.resources))
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [token]);
+  }, []);
 
   const filtered = resources.filter(r =>
     r.skill === activeSkill && (activeType === 'all' || r.type === activeType)

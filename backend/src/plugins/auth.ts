@@ -9,11 +9,10 @@ declare module 'fastify' {
 }
 
 export async function authHook(request: FastifyRequest, reply: FastifyReply): Promise<void> {
-  const authHeader = request.headers.authorization;
-  if (!authHeader?.startsWith('Bearer ')) {
+  const token = request.cookies?.token;
+  if (!token) {
     return reply.status(401).send({ error: 'Не авторизован' });
   }
-  const token = authHeader.split(' ')[1];
   try {
     const payload = jwt.verify(token, process.env.JWT_SECRET!) as {
       userId: string;

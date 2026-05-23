@@ -8,22 +8,22 @@ import { SkeletonCard } from '../components/Skeleton';
 import './DashboardPage.css';
 
 export function DashboardPage() {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const [scores, setScores] = useState<SkillScore[]>([]);
   const [hasTest, setHasTest] = useState(false);
   const [loading, setLoading] = useState(true);
   const [exerciseCount, setExerciseCount] = useState<number | null>(null);
 
   useEffect(() => {
-    api.get('/test/results', token)
+    api.get('/test/results')
       .then(data => { setScores(data.scores); setHasTest(true); })
       .catch(() => setHasTest(false))
       .finally(() => setLoading(false));
 
-    api.get('/program', token)
+    api.get('/program')
       .then(data => setExerciseCount(data.program.exercises.length))
       .catch(() => {});
-  }, [token]);
+  }, []);
 
   const radarData = scores.map(s => ({
     skill: SKILL_LABELS[s.skill],

@@ -32,7 +32,7 @@ const SKILL_COLORS: Record<Skill, string> = {
 interface HistoryEntry { skill: Skill; score: number; attempt: number; }
 
 export function ResultsPage() {
-  const { token, user } = useAuth();
+  const { user } = useAuth();
   const [scores, setScores] = useState<SkillScore[]>([]);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -40,14 +40,14 @@ export function ResultsPage() {
 
   useEffect(() => {
     Promise.all([
-      api.get('/test/results', token),
-      api.get('/test/history', token).catch(() => ({ history: [] })),
+      api.get('/test/results'),
+      api.get('/test/history').catch(() => ({ history: [] })),
     ]).then(([res, hist]) => {
       setScores(res.scores);
       setHistory(hist.history);
     }).catch(() => setError('Тест ещё не пройден'))
       .finally(() => setLoading(false));
-  }, [token]);
+  }, []);
 
   const radarData = scores.map(s => ({
     skill: SKILL_LABELS[s.skill],

@@ -1,12 +1,12 @@
 const BASE = '/api';
 
-async function request(method: string, path: string, token?: string | null, body?: unknown) {
+async function request(method: string, path: string, body?: unknown) {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
 
   const res = await fetch(`${BASE}${path}`, {
     method,
     headers,
+    credentials: 'include',
     body: body ? JSON.stringify(body) : undefined,
   });
 
@@ -16,8 +16,8 @@ async function request(method: string, path: string, token?: string | null, body
 }
 
 export const api = {
-  get:    (path: string, token?: string | null) => request('GET', path, token),
-  post:   (path: string, body: unknown, token?: string | null) => request('POST', path, token, body),
-  patch:  (path: string, body: unknown, token?: string | null) => request('PATCH', path, token, body),
-  delete: (path: string, token?: string | null) => request('DELETE', path, token),
+  get:    (path: string) => request('GET', path),
+  post:   (path: string, body: unknown) => request('POST', path, body),
+  patch:  (path: string, body: unknown) => request('PATCH', path, body),
+  delete: (path: string) => request('DELETE', path),
 };

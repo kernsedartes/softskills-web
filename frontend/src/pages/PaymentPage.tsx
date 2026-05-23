@@ -17,7 +17,7 @@ declare global {
 }
 
 export function PaymentPage() {
-  const { token, user } = useAuth();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [confirmationToken, setConfirmationToken] = useState('');
@@ -75,7 +75,7 @@ export function PaymentPage() {
     setLoading(true);
     setError('');
     try {
-      const data = await api.post('/payment/create', {}, token);
+      const data = await api.post('/payment/create', {});
       sessionStorage.setItem('payment_label', data.label);
       setConfirmationToken(data.confirmationToken);
     } catch (err: unknown) {
@@ -173,10 +173,10 @@ export function PaymentPage() {
 }
 
 export function PaymentSuccessPage() {
-  const { token, refreshUser } = useAuth();
+  const { refreshUser } = useAuth();
   const navigate = useNavigate();
   const [checking, setChecking] = useState(false);
-  const [status, setStatus] = useState<'idle' | 'paid' | 'pending'>('idle');
+  const [status, setStatus] = useState<'idle' | 'paid' | 'pending' | 'failed'>('idle');
 
   useEffect(() => {
     const label = sessionStorage.getItem('payment_label');
@@ -188,12 +188,15 @@ export function PaymentSuccessPage() {
     if (!label) { navigate('/payment'); return; }
     setChecking(true);
     try {
-      const data = await api.get(`/payment/status/${label}`, token);
+      const data = await api.get(`/payment/status/${label}`);
       if (data.payment.status === 'PAID') {
         await refreshUser();
         sessionStorage.removeItem('payment_label');
         setStatus('paid');
         setTimeout(() => navigate('/program'), 2500);
+      } else if (data.payment.status === 'FAILED') {
+        sessionStorage.removeItem('payment_label');
+        setStatus('failed');
       } else {
         setStatus('pending');
       }
@@ -212,6 +215,18 @@ export function PaymentSuccessPage() {
             <div className="success-icon">🎉</div>
             <h2 className="success-title">Оплата прошла!</h2>
             <p className="success-desc">Расширенный доступ активирован. Перенаправляем на программу...</p>
+          </>
+        ) : status === 'failed' ? (
+          <>
+            <div className="success-icon">❌</div>
+            <h2 className="success-title">Оплата отклонена</h2>
+            <p className="success-desc">
+              Платёж не был завершён. Проверьте данные карты и попробуйте снова.
+            </p>
+            <div className="success-actions">
+              <Link to="/payment" className="btn btn-primary">Попробовать снова</Link>
+              <Link to="/dashboard" className="btn btn-ghost">На главную</Link>
+            </div>
           </>
         ) : (
           <>

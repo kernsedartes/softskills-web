@@ -14,7 +14,7 @@ interface Stats {
 }
 
 export function ProfilePage() {
-  const { user, token, refreshUser } = useAuth();
+  const { user, refreshUser } = useAuth();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -41,14 +41,14 @@ export function ProfilePage() {
   const [avatarPreview, setAvatarPreview] = useState<string | null>(user?.avatar ?? null);
 
   useEffect(() => {
-    api.get('/auth/stats', token).then(setStats).catch(() => {});
-  }, [token]);
+    api.get('/auth/stats').then(setStats).catch(() => {});
+  }, []);
 
   const handleSaveName = async () => {
     setNameLoading(true);
     setNameMsg('');
     try {
-      await api.patch('/auth/profile', { name }, token);
+      await api.patch('/auth/profile', { name });
       await refreshUser();
       setNameMsg('ok');
       toast('Имя успешно сохранено', 'success');
@@ -66,7 +66,7 @@ export function ProfilePage() {
     setEmailMsg('');
     setEmailLoading(true);
     try {
-      await api.patch('/auth/email', { newEmail, password: emailPassword }, token);
+      await api.patch('/auth/email', { newEmail, password: emailPassword });
       await refreshUser();
       setEmailMsg('ok');
       setNewEmail('');
@@ -87,7 +87,7 @@ export function ProfilePage() {
     if (newPassword !== confirmPassword) { setPwdError('Пароли не совпадают'); return; }
     setPwdLoading(true);
     try {
-      await api.patch('/auth/password', { currentPassword, newPassword }, token);
+      await api.patch('/auth/password', { currentPassword, newPassword });
       setPwdMsg('ok');
       setCurrentPassword('');
       setNewPassword('');
@@ -115,7 +115,7 @@ export function ProfilePage() {
     try {
       const res = await fetch('/api/auth/avatar', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
         body: formData,
       });
       const data = await res.json();
@@ -132,7 +132,7 @@ export function ProfilePage() {
   const handleRemoveAvatar = async () => {
     setAvatarLoading(true);
     try {
-      await api.delete('/auth/avatar', token);
+      await api.delete('/auth/avatar');
       setAvatarPreview(null);
       await refreshUser();
     } finally {

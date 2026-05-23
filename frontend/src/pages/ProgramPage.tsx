@@ -20,7 +20,7 @@ const STATUS_NEXT_LABEL: Record<ExerciseStatus, string> = {
 };
 
 export function ProgramPage() {
-  const { token, user } = useAuth();
+  const { user } = useAuth();
   const [program, setProgram] = useState<DevelopmentProgram | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -30,7 +30,7 @@ export function ProgramPage() {
   const [savingNotes, setSavingNotes] = useState<string | null>(null);
 
   useEffect(() => {
-    api.get('/program', token)
+    api.get('/program')
       .then(data => {
         setProgram(data.program);
         const drafts: Record<string, string> = {};
@@ -41,13 +41,13 @@ export function ProgramPage() {
       })
       .catch(() => setError('no-program'))
       .finally(() => setLoading(false));
-  }, [token]);
+  }, []);
 
   const handleStatusChange = async (peId: string) => {
     if (toggling) return;
     setToggling(peId);
     try {
-      const data = await api.patch(`/program/exercise/${peId}/status`, {}, token);
+      const data = await api.patch(`/program/exercise/${peId}/status`, {});
       setProgram(prev => {
         if (!prev) return prev;
         return {
@@ -68,7 +68,7 @@ export function ProgramPage() {
     setSavingNotes(peId);
     try {
       const notes = notesDraft[peId] ?? '';
-      await api.patch(`/program/exercise/${peId}/notes`, { notes }, token);
+      await api.patch(`/program/exercise/${peId}/notes`, { notes });
       setProgram(prev => {
         if (!prev) return prev;
         return {

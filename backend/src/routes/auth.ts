@@ -36,8 +36,8 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         { expiresIn: '7d' }
       );
 
+      reply.setCookie('token', token, { httpOnly: true, sameSite: 'strict', path: '/', maxAge: 7 * 24 * 60 * 60 });
       return reply.status(201).send({
-        token,
         user: { id: user.id, email: user.email, name: user.name, has_paid: user.has_paid },
       });
     }
@@ -65,12 +65,18 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         { expiresIn: '7d' }
       );
 
+      reply.setCookie('token', token, { httpOnly: true, sameSite: 'strict', path: '/', maxAge: 7 * 24 * 60 * 60 });
       return reply.send({
-        token,
         user: { id: user.id, email: user.email, name: user.name, has_paid: user.has_paid },
       });
     }
   );
+
+  // POST /api/auth/logout
+  fastify.post('/logout', async (_request, reply) => {
+    reply.clearCookie('token', { path: '/' });
+    return reply.send({ ok: true });
+  });
 
   // GET /api/auth/me
   fastify.get('/me', { preHandler: authHook }, async (request, reply) => {

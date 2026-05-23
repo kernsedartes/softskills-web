@@ -18,7 +18,7 @@ export function LoginPage() {
     setLoading(true);
     try {
       const data = await api.post('/auth/login', { email, password });
-      login(data.token, data.user);
+      login(data.user);
       navigate('/dashboard');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Ошибка входа');
@@ -87,7 +87,7 @@ export function RegisterPage() {
     setLoading(true);
     try {
       const data = await api.post('/auth/register', { name, email, password });
-      login(data.token, data.user);
+      login(data.user);
       navigate('/dashboard');
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Ошибка регистрации');

@@ -2,6 +2,7 @@
 // Используют Fastify.inject() — реальные HTTP без сети, Prisma замокирован
 
 import Fastify, { FastifyInstance } from 'fastify';
+import cookie from '@fastify/cookie';
 import { authRoutes } from '../routes/auth';
 import { prisma } from '../lib/prisma';
 import bcrypt from 'bcryptjs';
@@ -43,6 +44,7 @@ describe('Auth routes', () => {
   beforeAll(async () => {
     process.env.JWT_SECRET = 'test-secret-key';
     app = Fastify({ logger: false });
+    await app.register(cookie);
     await app.register(authRoutes, { prefix: '/api/auth' });
     await app.ready();
   });
@@ -75,8 +77,8 @@ describe('Auth routes', () => {
 
       expect(res.statusCode).toBe(201);
       const body = JSON.parse(res.body);
-      expect(body.token).toBe('mock.jwt.token');
       expect(body.user.email).toBe('new@example.com');
+      expect(res.headers['set-cookie']).toMatch(/token=/);
     });
 
     it('возвращает 409 если email уже занят', async () => {
@@ -136,7 +138,7 @@ describe('Auth routes', () => {
       });
 
       expect(res.statusCode).toBe(200);
-      expect(JSON.parse(res.body).token).toBe('mock.jwt.token');
+      expect(res.headers['set-cookie']).toMatch(/token=/);
     });
 
     it('возвращает 401 если пользователь не найден', async () => {
@@ -182,14 +184,14 @@ describe('Auth routes', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/api/auth/me',
-        headers: { authorization: 'Bearer mock.jwt.token' },
+        headers: { cookie: 'token=mock.jwt.token' },
       });
 
       expect(res.statusCode).toBe(200);
       expect(JSON.parse(res.body).user.email).toBe('test@example.com');
     });
 
-    it('возвращает 401 без Authorization заголовка', async () => {
+    it('возвращает 401 без cookie', async () => {
       const res = await app.inject({
         method: 'GET',
         url: '/api/auth/me',
@@ -214,7 +216,7 @@ describe('Auth routes', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: '/api/auth/profile',
-        headers: { authorization: 'Bearer mock.jwt.token' },
+        headers: { cookie: 'token=mock.jwt.token' },
         payload: { name: 'Новое Имя' },
       });
 
@@ -222,7 +224,7 @@ describe('Auth routes', () => {
       expect(JSON.parse(res.body).user.name).toBe('Новое Имя');
     });
 
-    it('возвращает 401 без токена', async () => {
+    it('возвращает 401 без cookie', async () => {
       const res = await app.inject({
         method: 'PATCH',
         url: '/api/auth/profile',
@@ -249,7 +251,7 @@ describe('Auth routes', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: '/api/auth/password',
-        headers: { authorization: 'Bearer mock.jwt.token' },
+        headers: { cookie: 'token=mock.jwt.token' },
         payload: { currentPassword: 'oldpass123', newPassword: 'newpass123' },
       });
 
@@ -264,7 +266,7 @@ describe('Auth routes', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: '/api/auth/password',
-        headers: { authorization: 'Bearer mock.jwt.token' },
+        headers: { cookie: 'token=mock.jwt.token' },
         payload: { currentPassword: 'wrongpass', newPassword: 'newpass123' },
       });
 
@@ -276,7 +278,7 @@ describe('Auth routes', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: '/api/auth/password',
-        headers: { authorization: 'Bearer mock.jwt.token' },
+        headers: { cookie: 'token=mock.jwt.token' },
         payload: { currentPassword: 'oldpass', newPassword: '123' },
       });
 
@@ -288,7 +290,7 @@ describe('Auth routes', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: '/api/auth/password',
-        headers: { authorization: 'Bearer mock.jwt.token' },
+        headers: { cookie: 'token=mock.jwt.token' },
         payload: {},
       });
 
@@ -320,7 +322,7 @@ describe('Auth routes', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: '/api/auth/email',
-        headers: { authorization: 'Bearer mock.jwt.token' },
+        headers: { cookie: 'token=mock.jwt.token' },
         payload: { newEmail: 'new@example.com', password: 'correctpass' },
       });
 
@@ -337,7 +339,7 @@ describe('Auth routes', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: '/api/auth/email',
-        headers: { authorization: 'Bearer mock.jwt.token' },
+        headers: { cookie: 'token=mock.jwt.token' },
         payload: { newEmail: 'taken@example.com', password: 'correctpass' },
       });
 
@@ -351,7 +353,7 @@ describe('Auth routes', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: '/api/auth/email',
-        headers: { authorization: 'Bearer mock.jwt.token' },
+        headers: { cookie: 'token=mock.jwt.token' },
         payload: { newEmail: 'new@example.com', password: 'wrongpass' },
       });
 
@@ -362,7 +364,7 @@ describe('Auth routes', () => {
       const res = await app.inject({
         method: 'PATCH',
         url: '/api/auth/email',
-        headers: { authorization: 'Bearer mock.jwt.token' },
+        headers: { cookie: 'token=mock.jwt.token' },
         payload: {},
       });
 

@@ -83,6 +83,17 @@ export async function paymentRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(200).send({ ok: true });
     }
 
+    if (paymentData.status === 'canceled') {
+      const label = paymentData.metadata?.label;
+      if (label) {
+        const payment = await prisma.payment.findFirst({ where: { label } });
+        if (payment && payment.status === 'PENDING') {
+          await prisma.payment.update({ where: { id: payment.id }, data: { status: 'FAILED' } });
+        }
+      }
+      return reply.send({ ok: true });
+    }
+
     if (paymentData.status !== 'succeeded') {
       return reply.send({ ok: true });
     }
@@ -112,6 +123,40 @@ export async function paymentRoutes(fastify: FastifyInstance): Promise<void> {
 
     return reply.send({ ok: true });
   });
+
+  // POST /api/payment/mock-confirm — подтверждение платежа в демо-режиме
+  fastify.post<{ Body: { label: string } }>(
+    '/mock-confirm',
+    { preHandler: authHook },
+    async (request, reply) => {
+      const { label } = request.body;
+      if (!label) return reply.status(400).send({ error: 'label обязателен' });
+
+      const payment = await prisma.payment.findFirst({
+        where: { label, user_id: request.userId },
+      });
+      if (!payment) return reply.status(404).send({ error: 'Платёж не найден' });
+      if (payment.status !== 'PENDING') return reply.status(400).send({ error: 'Платёж уже обработан' });
+
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: { status: 'PAID', paid_at: new Date() },
+      });
+      await prisma.user.update({
+        where: { id: payment.user_id },
+        data: { has_paid: true },
+      });
+
+      const scores = await prisma.skillScore.findMany({ where: { user_id: payment.user_id } });
+      if (scores.length) {
+        const skillTotals: Record<string, number> = {};
+        for (const s of scores) skillTotals[s.skill] = s.score;
+        await generateProgram(payment.user_id, skillTotals, true);
+      }
+
+      return reply.send({ ok: true });
+    }
+  );
 
   // GET /api/payment/status/:label — проверка статуса
   fastify.get<{ Params: { label: string } }>(
@@ -148,6 +193,15 @@ export async function paymentRoutes(fastify: FastifyInstance): Promise<void> {
               await generateProgram(payment.user_id, skillTotals, true);
             }
 
+            const updated = await prisma.payment.findUnique({ where: { id: payment.id } });
+            return reply.send({ payment: updated });
+          }
+
+          if (data.status === 'canceled') {
+            await prisma.payment.update({
+              where: { id: payment.id },
+              data: { status: 'FAILED' },
+            });
             const updated = await prisma.payment.findUnique({ where: { id: payment.id } });
             return reply.send({ payment: updated });
           }

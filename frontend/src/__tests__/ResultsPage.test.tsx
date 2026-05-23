@@ -8,7 +8,6 @@ import { ResultsPage } from '../pages/ResultsPage';
 
 vi.mock('../context/AuthContext', () => ({
   useAuth: () => ({
-    token: 'mock-token',
     user: { id: 'u1', email: 'test@example.com', name: 'Иван', has_paid: false },
   }),
 }));
@@ -18,7 +17,7 @@ vi.mock('../api/client', () => ({
 }));
 
 // recharts требует ResizeObserver в jsdom
-global.ResizeObserver = class {
+(globalThis as typeof globalThis & { ResizeObserver: unknown }).ResizeObserver = class {
   observe() {}
   unobserve() {}
   disconnect() {}
@@ -87,7 +86,7 @@ describe('ResultsPage', () => {
     });
 
     // слабейшие: critical_thinking(20), leadership(30), self_organization(50)
-    const weakCard = screen.getByText(/зоны роста/i).closest('.summary-card')!;
+    const weakCard = screen.getByText(/зоны роста/i).closest('.summary-card') as HTMLElement;
     expect(within(weakCard).getByText(/Критическое мышление/)).toBeInTheDocument();
     expect(within(weakCard).getByText(/Лидерство/)).toBeInTheDocument();
   });

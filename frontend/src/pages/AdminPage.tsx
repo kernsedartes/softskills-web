@@ -42,7 +42,7 @@ const LEVEL_LABEL = (score: number) => {
 };
 
 export function AdminPage() {
-  const { isAdmin, token } = useAuth();
+  const { isAdmin } = useAuth();
   const { toast } = useToast();
   const [tab, setTab] = useState<Tab>('stats');
 
@@ -78,10 +78,10 @@ export function AdminPage() {
 
   useEffect(() => {
     Promise.all([
-      api.get('/admin/stats', token),
-      api.get('/admin/users', token),
-      api.get('/admin/questions', token),
-      api.get('/resources', token),
+      api.get('/admin/stats'),
+      api.get('/admin/users'),
+      api.get('/admin/questions'),
+      api.get('/resources'),
     ]).then(([s, u, q, r]) => {
       setStats(s);
       setUsers(u.users);
@@ -89,7 +89,7 @@ export function AdminPage() {
       setResources(r.resources);
     }).catch(() => toast('Ошибка загрузки данных', 'error'))
       .finally(() => setLoading(false));
-  }, [token]);
+  }, []);
 
   // ─── Users ───────────────────────────────────────────────
   const toggleExpand = async (userId: string) => {
@@ -97,7 +97,7 @@ export function AdminPage() {
     setExpandedUser(userId);
     if (!userScores[userId]) {
       try {
-        const data = await api.get(`/admin/users/${userId}/scores`, token);
+        const data = await api.get(`/admin/users/${userId}/scores`);
         setUserScores(prev => ({ ...prev, [userId]: data.scores }));
       } catch {
         toast('Не удалось загрузить результаты', 'error');
@@ -108,7 +108,7 @@ export function AdminPage() {
   const togglePaid = async (user: AdminUser) => {
     setTogglingId(user.id);
     try {
-      const data = await api.patch(`/admin/users/${user.id}`, { has_paid: !user.has_paid }, token);
+      const data = await api.patch(`/admin/users/${user.id}`, { has_paid: !user.has_paid });
       setUsers(prev => prev.map(u => u.id === user.id ? data.user : u));
       toast(data.user.has_paid ? 'Платный доступ выдан' : 'Платный доступ отозван', 'success');
     } catch {
@@ -125,14 +125,14 @@ export function AdminPage() {
 
   // ─── Questions ────────────────────────────────────────────
   const reloadQuestions = () =>
-    api.get('/admin/questions', token).then(d => setQuestions(d.questions));
+    api.get('/admin/questions').then(d => setQuestions(d.questions));
 
   const handleAddQuestion = async () => {
     if (!qForm.text.trim()) { toast('Введите текст вопроса', 'error'); return; }
     if (qForm.options.some(o => !o.trim())) { toast('Заполните все 5 вариантов ответа', 'error'); return; }
     setQSubmitting(true);
     try {
-      await api.post('/admin/questions', { ...qForm, options: qForm.options }, token);
+      await api.post('/admin/questions', { ...qForm, options: qForm.options });
       toast('Вопрос добавлен', 'success');
       setQForm(EMPTY_QUESTION);
       await reloadQuestions();
@@ -146,7 +146,7 @@ export function AdminPage() {
   const handleDeleteQuestion = async (id: string) => {
     if (!confirm('Удалить вопрос?')) return;
     try {
-      await api.delete(`/admin/questions/${id}`, token);
+      await api.delete(`/admin/questions/${id}`);
       toast('Вопрос удалён', 'success');
       await reloadQuestions();
     } catch (e: unknown) {
@@ -160,17 +160,17 @@ export function AdminPage() {
 
   // ─── Resources ────────────────────────────────────────────
   const reloadResources = () =>
-    api.get('/resources', token).then(d => setResources(d.resources));
+    api.get('/resources').then(d => setResources(d.resources));
 
   const handleSubmitResource = async () => {
     if (!rForm.title || !rForm.author || !rForm.description) { toast('Заполните все поля', 'error'); return; }
     setRSubmitting(true);
     try {
       if (editId) {
-        await api.patch(`/resources/${editId}`, rForm, token);
+        await api.patch(`/resources/${editId}`, rForm);
         toast('Материал обновлён', 'success');
       } else {
-        await api.post('/resources', rForm, token);
+        await api.post('/resources', rForm);
         toast('Материал добавлен', 'success');
       }
       setRForm(EMPTY_RESOURCE);
@@ -192,7 +192,7 @@ export function AdminPage() {
   const handleDeleteResource = async (id: string) => {
     if (!confirm('Удалить материал?')) return;
     try {
-      await api.delete(`/resources/${id}`, token);
+      await api.delete(`/resources/${id}`);
       toast('Удалено', 'success');
       await reloadResources();
     } catch (e: unknown) {
@@ -211,7 +211,7 @@ export function AdminPage() {
     try {
       await fetch(`/api/resources/${pendingFileId}/file`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
         body: formData,
       });
       toast('Файл загружен', 'success');
@@ -227,7 +227,7 @@ export function AdminPage() {
 
   const handleRemoveFile = async (id: string) => {
     try {
-      await api.delete(`/resources/${id}/file`, token);
+      await api.delete(`/resources/${id}/file`);
       toast('Файл удалён', 'success');
       await reloadResources();
     } catch (e: unknown) {
